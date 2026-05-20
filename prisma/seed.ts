@@ -14,6 +14,8 @@ const companies = [
     vertical: "Healthcare",
     stage: "Series A",
     status: "PRIORITY",
+    rawScrapedText:
+      "CerePath AI, founded by former GE Healthcare engineers and a Mayo Clinic radiologist, has built an AI decision support co-pilot that helps radiologists prioritize and read diagnostic studies faster. The company announced this week that its platform is now live in pilots at three health systems, where it has demonstrated an 80% reduction in critical-finding notification time. CerePath is working toward FDA 510(k) clearance for its flagship CT triage module, expected to be filed in Q3. The platform integrates directly into existing PACS workflows and operates across CT, MRI, and X-ray modalities, reducing routine read time by roughly 40%.",
     profile: JSON.stringify({
       description:
         "CerePath AI builds real-time decision support for diagnostic radiology, surfacing critical findings and automating routine reads across CT, MRI, and X-ray modalities.",
@@ -45,6 +47,8 @@ const companies = [
     vertical: "Life Sciences",
     stage: "Seed",
     status: "REVIEWING",
+    rawScrapedText:
+      "PharmaTrace, co-founded by a former Pfizer pharmacovigilance director who spent eight years building global PV workflows at the company, automates the most labor-intensive parts of drug safety case processing. The platform parses unstructured adverse event reports, codes MedDRA terms automatically, and generates ICSRs ready for EMA and FDA submission. Two major CROs have signed LOIs to pilot the technology, and the platform is already processing over 500 cases per month in beta. PharmaTrace integrates natively with Argus Safety and Veeva Vault, removing the need for custom API work during onboarding.",
     profile: JSON.stringify({
       description:
         "PharmaTrace automates adverse event detection and regulatory report generation for pharmaceutical manufacturers, reducing manual case processing from days to minutes.",
@@ -76,6 +80,8 @@ const companies = [
     vertical: "Healthcare",
     stage: "Series A",
     status: "REVIEWING",
+    rawScrapedText:
+      "ClaimSight is automating prior authorization and claims adjudication for health insurers, with a platform built by former Anthem and Optum product leaders who spent years on the inside of payer operations. The company is running an undisclosed pilot with a Blue Cross affiliate, where its system has achieved a 95% auto-adjudication rate on routine claims. The CMS final rule on prior authorization transparency, effective January 2026, has created a hard regulatory deadline that is accelerating payer interest in automated PA solutions. ClaimSight's LLM layer interprets clinical notes against payer-specific medical policies and produces an auditable decision rationale for each case.",
     profile: JSON.stringify({
       description:
         "ClaimSight uses AI to automate the prior authorization workflow and downstream claims adjudication for commercial and Medicare Advantage health plans.",
@@ -107,6 +113,8 @@ const companies = [
     vertical: "Fintech",
     stage: "Series A",
     status: "PRIORITY",
+    rawScrapedText:
+      "LendLogic, founded by a former community bank EVP who spent 15 years in SMB and commercial real estate lending, has built an AI underwriting platform purpose-built for community financial institutions. The company has signed 12 community bank customers and is tracking $8M in annual recurring revenue, with a pipeline concentrated in banks between $500M and $5B in assets. LendLogic's platform cuts average loan decision time from three weeks to four days by ingesting tax returns, property data, and financial statements and generating a complete credit memo with risk ratings. The platform ships with native core integrations for Fiserv and Jack Henry, the two dominant core banking systems serving community banks, enabling deployment without a lengthy IT project.",
     profile: JSON.stringify({
       description:
         "LendLogic replaces spreadsheet-based credit analysis with an AI underwriting platform tailored to SMB and commercial real estate loans at community financial institutions.",
@@ -138,6 +146,8 @@ const companies = [
     vertical: "Life Sciences",
     stage: "Seed",
     status: "NEW",
+    rawScrapedText:
+      "GenomixFlow was founded by two PhD computational biologists who previously built genomics data infrastructure at a genomics startup that was acquired in 2022. The company automates variant curation and clinical report generation for diagnostic genomics labs that are struggling to keep pace with rising sequencing volumes and a shortage of genetic counselors. A pilot is underway at a large unnamed academic medical center genomics lab, where early internal benchmarks show a 3x improvement in variant interpretation throughput compared to the manual workflow. GenomixFlow classifies variants against ClinVar and OMIM, surfaces supporting literature evidence, and drafts clinical-grade pathology reports ready for genetic counselor review.",
     profile: JSON.stringify({
       description:
         "GenomixFlow accelerates clinical genomics interpretation by automating variant curation, literature triage, and report generation for diagnostic labs.",
@@ -168,6 +178,8 @@ const companies = [
     vertical: "Fintech",
     stage: "Series B",
     status: "PASS",
+    rawScrapedText:
+      "InsureFlow AI announced the close of its $25M Series B at an $85M post-money valuation, led by a top-tier growth equity fund, bringing total raised to $38M. The company's claims intelligence platform is deployed at two Top 10 US property and casualty carriers, and the company has disclosed a revenue run-rate consistent with $15M or more in ARR. InsureFlow integrates as a modular AI layer over existing claims management systems including Guidewire and Duck Creek, covering FNOL automation, fraud scoring, and subrogation identification. The company is now expanding its product into additional insurance lines including specialty and reinsurance.",
     profile: JSON.stringify({
       description:
         "InsureFlow AI offers a suite of AI models for property and casualty insurers covering FNOL automation, claims triage, fraud scoring, and subrogation opportunity identification.",
