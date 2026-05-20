@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  website         String?
+  oneLiner        String?
+  vertical        String?
+  stage           String?
+  sourceUrl       String?
+  rawScrapedText  String?
+  status          String   @default("NEW")
+  profile         String?
+  thesisFit       String?
+  humanEdits      String?
+  nextStep        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  notes           Note[]
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  body      String
+  author    String   @default("Reviewer")
+  createdAt DateTime @default(now())
+}
+
+model ScanRun {
+  id           String   @id @default(cuid())
+  query        String
+  sourcesUsed  String
+  companyCount Int      @default(0)
+  createdAt    DateTime @default(now())
+}
