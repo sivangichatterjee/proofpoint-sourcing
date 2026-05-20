@@ -36,3 +36,11 @@ export const ThesisFitSchema = z.object({
   }),
 });
 export type ThesisFit = z.infer<typeof ThesisFitSchema>;
+
+export const RelevanceFilterSchema = z.object({
+  relevant: z.boolean(),
+  companyName: z.string().nullable(),
+  oneLiner: z.string().nullable(),
+  reason: z.string(),
+});
+export type RelevanceFilter = z.infer<typeof RelevanceFilterSchema>;

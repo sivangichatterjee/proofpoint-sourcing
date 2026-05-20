@@ -80,3 +80,34 @@ ${profileJson}
 
 Produce the thesis fit assessment.`,
 };
+
+export const RELEVANCE_FILTER_PROMPT = {
+  version: "v1",
+  system: `You are filtering web search results for Proofpoint Capital, a VC firm focused on early-stage Vertical AI companies in healthcare, life sciences, and financial services.
+
+You receive a single search result (title, URL, snippet). Decide if it represents a company that fits Proofpoint's scope.
+
+Relevant means ALL of:
+- It's about a specific company (not a market report, news roundup, general article, or person)
+- The company appears to be AI-native or AI-driven (not a traditional software company that "added AI")
+- The company has a clear vertical focus in healthcare, life sciences, OR financial services
+- It looks early-stage (pre-seed through Series B) — not a public company, not Big Tech
+
+Irrelevant examples: thought-leadership articles, "top 10 AI companies" listicles, conference announcements, fundraising trend pieces, individual people's bios, general AI news.
+
+Output strict JSON only:
+
+{
+  "relevant": <boolean>,
+  "companyName": "<extracted company name or null>",
+  "oneLiner": "<one-sentence description of what the company does, or null>",
+  "reason": "<short explanation, 1 sentence>"
+}`,
+  buildUser: ({ title, url, content }: { title: string; url: string; content: string }) =>
+    `Search result:
+Title: ${title}
+URL: ${url}
+Snippet: ${content}
+
+Is this a relevant Vertical AI company for Proofpoint?`,
+};

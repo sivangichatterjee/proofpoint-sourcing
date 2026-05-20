@@ -1,0 +1,17 @@
+[
+  {
+    "title": "AuditIQ raises $6M seed to automate health insurance claims auditing with AI",
+    "url": "https://techcrunch.com/2026/03/15/auditiq-raises-6m-insurance-claims-ai",
+    "content": "AuditIQ, founded by a former Cigna VP of Claims Operations and a McKinsey health practice alumna, has raised a $6M seed round led by Andreessen Horowitz to bring AI-powered audit automation to health insurance claims processing. The platform ingests raw claims data and clinical documentation, applies proprietary detection models trained on 40 million historical claims, and automatically flags upcoding, duplicate billing, and medical necessity failures. Early pilots with two regional Blue Cross Blue Shield affiliates have recovered $2.3M in improper payments within 90 days of deployment. AuditIQ targets mid-size payers processing between 200K and 2M claims annually and integrates natively with Facets and TriZetto."
+  },
+  {
+    "title": "PathfinderDx launches AI pathology co-pilot for community oncology clinics",
+    "url": "https://www.axios.com/pro/health-tech/2026/04/02/pathfinderdx-pathology-ai-oncology",
+    "content": "PathfinderDx emerged from stealth today with $4.2M in pre-seed funding from General Catalyst to help community oncology clinics access pathology AI without building in-house data science teams. The two co-founders previously led the slide digitization and model training pipeline at Foundation Medicine before that company was acquired by Roche. The product integrates with major laboratory information systems including Sunquest and Cerner PathNet, delivering real-time tumor classification and biomarker scoring directly on H&E slides. PathfinderDx has signed LOIs with three community cancer centers representing approximately 12,000 annual pathology cases, with full production rollout planned for Q3 2026."
+  },
+  {
+    "title": "The 12 best AI tools reshaping healthcare in 2026 — ranked by health system CIOs",
+    "url": "https://www.healthcareittoday.com/2026/04/top-12-ai-tools-healthcare-2026-ranked",
+    "content": "From ambient documentation to claims denial management, AI is transforming every corner of healthcare delivery. In this annual roundup, we asked 50 health system CIOs to rank the AI tools they rely on most in 2026. Topping the list are Epic's integrated ambient assistant, Google's Med-PaLM 2, Microsoft's Dragon Ambient eXperience, and Nuance's DAX Copilot. Several emerging startups also made the cut, alongside commentary on what's hype versus what's actually moving the needle in clinical workflows and administrative operations."
+  }
+]
