@@ -23,6 +23,7 @@ model Company {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   notes           Note[]
+  evalPreferences EvalPreference[]
 }
 
 model Note {
@@ -40,4 +41,15 @@ model ScanRun {
   sourcesUsed  String
   companyCount Int      @default(0)
   createdAt    DateTime @default(now())
+}
+
+model EvalPreference {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  preferredModel String
+  rejectedModels String
+  profileJson    String
+  results        String
+  createdAt      DateTime @default(now())
 }

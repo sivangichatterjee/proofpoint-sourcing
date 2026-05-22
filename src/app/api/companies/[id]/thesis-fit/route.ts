@@ -5,10 +5,12 @@ import { THESIS_FIT_PROMPT } from "@/lib/prompts";
 import { ThesisFitSchema } from "@/lib/types";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const body = await req.json().catch(() => ({}));
+  const humanEditedRationale: string | undefined = body?.humanEditedRationale ?? undefined;
 
   const company = await db.company.findUnique({ where: { id } });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -31,7 +33,7 @@ export async function POST(
   const result = await callLLM(
     "thesis_fit",
     THESIS_FIT_PROMPT.system,
-    THESIS_FIT_PROMPT.buildUser({ profileJson: JSON.stringify(profileForPrompt, null, 2) }),
+    THESIS_FIT_PROMPT.buildUser({ profileJson: JSON.stringify(profileForPrompt, null, 2), humanEditedRationale }),
     thesisFitSchema,
     {
       buildFallback: () => ({

@@ -1,45 +1,69 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { runScan } from "@/lib/agent";
+import { runScan, ScanProgressEvent } from "@/lib/agent";
 
-// Allow up to 120s — sequential LLM calls per company add up
-export const maxDuration = 120;
+// Allow up to 180s — agentic loop with multiple LLM + search calls
+export const maxDuration = 180;
 
-const bodySchema = z.object({
-  query: z.string().min(1, "Query is required"),
-});
-
-export async function POST(req: NextRequest) {
-  let body: unknown;
+export async function POST(req: Request) {
+  let query: string;
   try {
-    body = await req.json();
+    const body = await req.json();
+    query = typeof body?.query === "string" ? body.query.trim() : "";
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  const parsed = bodySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request" },
-      { status: 400 }
-    );
+  if (!query) {
+    return new Response(JSON.stringify({ error: "Query is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  try {
-    const { created, skipped, scanRunId } = await runScan({
-      query: parsed.data.query,
-    });
-    return NextResponse.json({
-      created: created.length,
-      skipped: skipped.length,
-      scanRunId,
-      companies: created.map((c) => c.id),
-    });
-  } catch (err) {
-    console.error("[scan route] Unhandled error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Scan failed" },
-      { status: 500 }
-    );
-  }
+  const encoder = new TextEncoder();
+
+  const reqSignal = req instanceof Request ? req.signal : undefined;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      function emit(event: ScanProgressEvent) {
+        if (reqSignal?.aborted) return;
+        try {
+          const data = `data: ${JSON.stringify(event)}\n\n`;
+          controller.enqueue(encoder.encode(data));
+        } catch {
+          // stream already closed
+        }
+      }
+
+      try {
+        await runScan({
+          query,
+          goal: 5,
+          maxIterations: 5,
+          onProgress: emit,
+          signal: reqSignal,
+        });
+      } catch (err) {
+        if (!reqSignal?.aborted) {
+          emit({
+            type: "error",
+            message: err instanceof Error ? err.message : "Scan failed",
+          });
+        }
+      } finally {
+        try { controller.close(); } catch { /* already closed */ }
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }

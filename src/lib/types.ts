@@ -1,10 +1,39 @@
 import { z } from "zod";
 
+export const SignalItemSchema = z.object({
+  text: z.string(),
+  source: z.enum(["ai", "analyst"]),
+  addedAt: z.string().optional(),
+  sourceUrl: z.string().optional(),
+});
+export type SignalItem = z.infer<typeof SignalItemSchema>;
+
+export function normalizeSignals(
+  signals: (string | SignalItem)[],
+  sourceUrl?: string
+): SignalItem[] {
+  return signals.map((s) =>
+    typeof s === "string"
+      ? { text: s, source: "ai" as const, sourceUrl }
+      : { ...s, sourceUrl: s.sourceUrl ?? sourceUrl }
+  );
+}
+
+export const NEXT_STEP_OPTIONS = [
+  "Reach out to founder",
+  "Request pitch deck",
+  "Schedule partner intro",
+  "Conduct reference checks",
+  "Add to watch list",
+  "Follow up next quarter",
+  "Pass — send decline note",
+  "Custom…",
+] as const;
+
 export const CompanyStatusSchema = z.enum([
   "NEW",
   "REVIEWING",
-  "PRIORITY",
-  "FOLLOW_UP",
+  "PRIORITY_FOLLOW_UP",
   "PASS",
 ]);
 export type CompanyStatus = z.infer<typeof CompanyStatusSchema>;
@@ -14,7 +43,8 @@ export const CompanyProfileSchema = z.object({
   productSummary: z.string(),
   targetCustomer: z.string(),
   verticalTags: z.array(z.string()),
-  signalsExtracted: z.array(z.string()),
+  signalsExtracted: z.array(z.union([z.string(), SignalItemSchema])),
+  stage: z.string().nullable(),
   _meta: z.object({
     model: z.string(),
     generatedAt: z.string(),
@@ -44,3 +74,10 @@ export const RelevanceFilterSchema = z.object({
   reason: z.string(),
 });
 export type RelevanceFilter = z.infer<typeof RelevanceFilterSchema>;
+
+export const AgentPlannerSchema = z.object({
+  reasoning: z.string(),
+  query: z.string(),
+  done: z.boolean(),
+});
+export type AgentPlannerOutput = z.infer<typeof AgentPlannerSchema>;

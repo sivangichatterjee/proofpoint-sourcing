@@ -1,6 +1,8 @@
+import Image from "next/image";
 import { db } from "@/lib/db";
 import { QueueTable } from "@/components/queue-table";
 import { RunScanButton } from "@/components/run-scan-button";
+import { ScanBanner } from "@/components/scan-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +14,11 @@ export default async function QueuePage() {
         id: true,
         name: true,
         website: true,
+        oneLiner: true,
         vertical: true,
         stage: true,
         status: true,
+        nextStep: true,
         thesisFit: true,
         createdAt: true,
       },
@@ -22,31 +26,64 @@ export default async function QueuePage() {
     db.scanRun.findFirst({ orderBy: { createdAt: "desc" } }),
   ]);
 
-  const lastScanLabel = lastScan
-    ? `Last scan: ${new Date(lastScan.createdAt).toLocaleString()} · ${lastScan.companyCount} companies found`
-    : "No scans run yet";
-
   const scanMode = process.env.SCAN_MODE ?? "mock";
 
+  const subtitle = lastScan
+    ? `Vertical AI deal flow · Updated ${new Date(lastScan.createdAt).toLocaleString()} · ${companies.length} ${companies.length === 1 ? "company" : "companies"}`
+    : `Vertical AI deal flow · ${companies.length} ${companies.length === 1 ? "company" : "companies"}`;
+
   return (
-    <main className="container mx-auto px-6 py-8">
-      <div className="flex items-start justify-between mb-6">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-semibold">Sourcing Queue</h1>
-          <p className="text-sm text-muted-foreground">{lastScanLabel}</p>
-          {scanMode === "mock" ? (
-            <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 ring-1 ring-amber-300">
-              Mock mode — using fixture data
+    <>
+      {/* ── Branding bar ─────────────────────────────────────────────────── */}
+      <div className="border-b border-border bg-background py-3">
+        <div className="px-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/proofpoint-logo.webp"
+              width={140}
+              height={36}
+              priority
+              alt="Proofpoint Capital"
+              className="h-8 w-auto"
+            />
+            <span className="text-sm font-sans font-medium text-[var(--proofpoint-orange)]">
+              Sourcing Tool
             </span>
-          ) : (
-            <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300">
-              Live mode — using Tavily web search
-            </span>
-          )}
+          </div>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground">
+            Internal
+          </span>
         </div>
-        <RunScanButton />
       </div>
-      <QueueTable companies={companies} />
-    </main>
+      <ScanBanner />
+
+      <main className="container mx-auto max-w-7xl px-6 py-10">
+        <div className="border-b border-border pb-8 mb-8">
+          <div className="flex items-baseline justify-between gap-6">
+            <div>
+              <h1 className="font-serif text-3xl font-medium tracking-tight text-foreground leading-tight">
+                Sourcing Queue
+              </h1>
+              <p className="mt-3 text-sm text-muted-foreground">{subtitle}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {scanMode === "mock" ? (
+                <span className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  Mock data
+                </span>
+              ) : (
+                <span className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  Live
+                </span>
+              )}
+              <RunScanButton />
+            </div>
+          </div>
+        </div>
+        <QueueTable companies={companies} />
+      </main>
+    </>
   );
 }

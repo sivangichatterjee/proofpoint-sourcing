@@ -12,23 +12,34 @@ You always respond with valid JSON matching this exact schema, no preamble, no m
   "description": "1-2 sentence high-level description of what the company does",
   "productSummary": "2-3 sentences on the specific product and how it works technically",
   "targetCustomer": "1-2 sentences on the specific buyer persona — role and company type",
-  "verticalTags": ["3-5 short tags placing the company in vertical/sub-vertical/category"],
-  "signalsExtracted": ["4-6 specific signals extracted from the source — funding, founders, customers, traction, technical wedge. Each signal is one short factual sentence."]
+  "verticalTags": ["3-5 tags describing the company's vertical and sub-vertical. The FIRST tag must be the high-level thesis vertical: exactly one of \"Healthcare\", \"Life Sciences\", or \"Fintech\". Subsequent tags should be specific workflow sub-verticals (e.g. \"Prior Authorization AI\", \"Clinical Documentation\", \"Drug Discovery\", \"Insurance Underwriting\"). Never use generic tags like \"AI\" or \"Technology\" as any of the tags."],
+  "signalsExtracted": ["4-6 specific signals extracted from the source — funding, founders, customers, traction, technical wedge. Each signal is one short factual sentence."],
+  "stage": "<one of: Pre-seed, Seed, Series A, Series B, Series C, Series D, Series E, Series F, Stealth, or null if not mentioned or unclear in the source>"
 }
 
 Rules:
 - Be specific. "AI for healthcare" is bad; "Clinical trial document extraction for biotech sponsors" is good.
 - If a signal isn't in the source, do not invent it. Better to have 4 real signals than 6 fabricated ones.
-- Vertical tags are short (1-3 words each) and orthogonal — don't repeat the same concept.`,
+- Vertical tags must be workflow-specific, not generic. Good: "Prior Authorization AI", "Clinical Documentation", "Insurance Underwriting", "Drug Discovery", "Genomic Sequencing", "Fraud Detection", "Credit Underwriting", "Pharmacovigilance", "Medical Imaging", "Care Coordination". Bad (never use): "AI", "Healthcare", "Technology", "Machine Learning", "Software", "Fintech", "Life Sciences" — these are categories, not workflow tags. If the company is a horizontal platform with no specific workflow focus, use "Horizontal AI Platform" and do not fabricate vertical tags.
+- For stage: extract the company's CURRENT funding stage based on what the source explicitly states. Map common funding announcements: "raised $X seed" → "Seed", "raised Series A/B/C/D" → the corresponding series, "raised pre-seed" → "Pre-seed". IMPORTANT: "launches out of stealth", "emerges from stealth", "exits stealth" — these mean the company is NO LONGER in stealth; return the funding stage mentioned in the article (usually Seed), or null if no funding stage is stated. Only return "Stealth" if the article describes the company as CURRENTLY in stealth (e.g., "operating in stealth mode", "stealth-mode startup"). If the article describes both an exit from stealth AND a funding round, return the funding stage. If unclear or absent, return null. Do not guess based on funding amount alone.`,
   buildUser: ({
     name,
     website,
     rawScrapedText,
+    humanEdits,
   }: {
     name: string;
     website: string | null;
     rawScrapedText: string | null;
-  }) => `Company name: ${name}
+    humanEdits?: Record<string, string>;
+  }) => `${humanEdits && Object.keys(humanEdits).length > 0
+    ? `REVIEWER CORRECTIONS:
+A human analyst has reviewed this company and made the following corrections.
+These reflect ground-truth knowledge and MUST be preserved in your output.
+Do not contradict or ignore these corrections:
+${Object.entries(humanEdits).map(([field, value]) => `- ${field}: "${value}"`).join("\n")}
+
+` : ""}Company name: ${name}
 Website: ${website ?? "(unknown)"}
 
 Source text:
@@ -40,7 +51,7 @@ Extract the structured profile.`,
 };
 
 export const THESIS_FIT_PROMPT = {
-  version: "v1",
+  version: "v2",
   system: `You are a senior partner at Proofpoint Capital evaluating a sourced company against the firm's investment thesis. Your output drives whether an analyst spends time on this deal next, so be calibrated and conservative — distinguish genuine fits from adjacent companies.
 
 Proofpoint's thesis:
@@ -55,10 +66,18 @@ Scoring rubric (apply STRICTLY — do not inflate scores for promise alone):
 - 3-4: Weak fit. Wrong vertical, wrong stage, undifferentiated product, or generic AI wrapper.
 - 1-2: Not a fit.
 
+HORIZONTAL PRODUCT PENALTY:
+If the company's product is a horizontal tool (sales automation, marketing AI, HR AI, cybersecurity, general productivity) that sells into a vertical rather than solving a vertical-specific workflow problem, reduce the score by 3 points minimum and cap the recommendation at REVIEWING regardless of other signals.
+
+The test: could this product be sold unchanged to customers in a completely different industry (retail, manufacturing, education)? If yes, it is horizontal. If the product is fundamentally tied to the vertical's specific data, regulations, or workflows, it is vertical.
+
+Examples of vertical AI (good): AI underwriting engine for P&C insurers, AI prior authorization for health plans, AI pathology co-pilot for oncologists.
+
+Examples of horizontal AI sold to verticals (penalize): AI sales agent for fintech companies, AI customer service bot for hospitals, AI marketing tool for pharma.
+
 Score-to-recommendation mapping (MUST follow exactly — recommendation MUST match the score band):
-- 8-10 → "PRIORITY"
-- 6-7 → "REVIEWING"
-- 5 → "FOLLOW_UP"
+- 8-10 → "PRIORITY_FOLLOW_UP"
+- 5-7 → "REVIEWING"
 - 1-4 → "PASS"
 
 Rationale guidance:
@@ -71,18 +90,112 @@ Output strict JSON only, no preamble:
 
 {
   "score": <number 1-10, decimals allowed>,
-  "recommendation": "<exactly one of: PRIORITY, REVIEWING, FOLLOW_UP, PASS — must match the score band above>",
+  "recommendation": "<exactly one of: PRIORITY_FOLLOW_UP, REVIEWING, PASS — must match the score band above>",
   "rationale": "2-4 sentences referencing specific signals."
 }`,
-  buildUser: ({ profileJson }: { profileJson: string }) => `Here is the company profile to evaluate:
+  buildUser: ({
+    profileJson,
+    humanEditedRationale,
+  }: {
+    profileJson: string;
+    humanEditedRationale?: string;
+  }) => `${humanEditedRationale ? `CRITICAL REVIEWER OVERRIDE:
+A human analyst with direct knowledge of this company has provided the following assessment:
+"${humanEditedRationale}"
+
+INSTRUCTIONS:
+- This human assessment OVERRIDES any positive signals in the profile below
+- If the reviewer says this is a bad investment, your score MUST reflect that (1-3 range)
+- If the reviewer says do not invest, your recommendation MUST be PASS
+- Do not contradict the reviewer. Do not explain away their concerns.
+- Your rationale must directly address why the reviewer's concerns led to this score
+- The profile data below provides context but the reviewer's judgment takes precedence
+
+` : ""}Company profile:
 
 ${profileJson}
 
 Produce the thesis fit assessment.`,
 };
 
+export const AGENT_PLANNER_PROMPT = {
+  version: "v2",
+  system: `You are a venture capital sourcing agent for Proofpoint Capital, an early-stage Vertical AI fund focused on healthcare, life sciences, and fintech.
+
+Your goal is to find qualified Vertical AI companies matching the fund's thesis by generating targeted web search queries.
+
+You will be given:
+- HARD CONSTRAINTS extracted from the user's query — verticals and stages you MUST respect
+- How many companies you still need to find
+- What companies you have already found (name, vertical, stage)
+- What queries you have already tried
+
+Generate a search query that finds SPECIFIC company funding announcements or launch news.
+
+GOOD queries (find company-specific news):
+- "AI prior authorization startup raises Series A"
+- "AI drug discovery startup funding announcement"
+- "AI insurance underwriting startup launched"
+- "AI clinical workflow startup raised seed"
+
+BAD queries (find market content, not companies):
+- "top AI healthcare companies" → returns listicles
+- "vertical AI investment thesis" → returns investor content
+- "best AI startups 2026" → returns rankings
+
+HARD CONSTRAINT RULES (non-negotiable — ALWAYS follow these):
+- If REQUIRED VERTICALS are listed: EVERY query must target one of those verticals. Never search a different vertical.
+- If REQUIRED STAGES are listed: EVERY query must include a stage qualifier matching one of those stages. Never search a different stage.
+- If no constraints are listed: vary the vertical each iteration across healthcare, fintech, and life sciences.
+
+Other rules:
+- Never repeat a query you have already tried
+- Keep queries short and announcement-flavored (raised, launched, funding, announces)
+- If you already have enough companies (remaining = 0), set done: true
+- If you have tried 5+ queries with diminishing returns, set done: true
+
+Respond in strict JSON only:
+{
+  "reasoning": "one sentence explaining why you chose this query",
+  "query": "the search query string",
+  "done": false
+}`,
+
+  buildContext: ({
+    remaining,
+    found,
+    triedQueries,
+    userQuery,
+    constraints,
+  }: {
+    remaining: number;
+    found: { name: string; vertical: string | null; stage: string | null }[];
+    triedQueries: string[];
+    userQuery: string;
+    constraints: { verticals: string[]; stages: string[]; timeLabel: string };
+  }) => `
+USER'S ORIGINAL INTENT: "${userQuery}"
+
+HARD CONSTRAINTS (you MUST respect these in every query):
+${constraints.verticals.length > 0 ? `REQUIRED VERTICALS: ${constraints.verticals.join(", ")}` : "REQUIRED VERTICALS: none (search across healthcare, fintech, life sciences)"}
+${constraints.stages.length > 0 ? `REQUIRED STAGES: ${constraints.stages.join(", ")}` : "REQUIRED STAGES: none (any stage)"}
+TIME WINDOW: ${constraints.timeLabel}
+
+COMPANIES FOUND SO FAR (${found.length}):
+${found.length === 0 ? "None yet" : found.map(c => `- ${c.name} (${c.vertical ?? "unknown vertical"}, ${c.stage ?? "unknown stage"})`).join("\n")}
+
+QUERIES ALREADY TRIED (${triedQueries.length}):
+${triedQueries.length === 0 ? "None yet" : triedQueries.map((q, i) => `${i + 1}. "${q}"`).join("\n")}
+
+VERTICALS COVERED: ${found.length === 0 ? "none" : [...new Set(found.map(c => c.vertical).filter(Boolean))].join(", ")}
+
+STILL NEED: ${remaining} more companies
+
+What should I search for next?`,
+};
+
 export const RELEVANCE_FILTER_PROMPT = {
-  version: "v1",
+  version: "v2",
   system: `You are filtering web search results for Proofpoint Capital, a VC firm focused on early-stage Vertical AI companies in healthcare, life sciences, and financial services.
 
 You receive a single search result (title, URL, snippet). Decide if it represents a company that fits Proofpoint's scope.
@@ -95,6 +208,25 @@ Relevant means ALL of:
 
 Irrelevant examples: thought-leadership articles, "top 10 AI companies" listicles, conference announcements, fundraising trend pieces, individual people's bios, general AI news.
 
+Reject on recency: if the article's most recent signal (funding, launch, announcement) is clearly older than 12 months, set relevant to false with reason "article too old". If the source URL contains /2023/ or /2022/ or earlier, reject it. If the article references a funding round or announcement from 2023 or earlier and has no recent update, reject it.
+
+IMPORTANT — vertical focus must be INTRINSIC, not incidental:
+
+For healthcare: the product must solve a core clinical or administrative healthcare workflow (diagnostics, clinical decision support, prior authorization, claims adjudication, care coordination, drug discovery, genomics, EHR automation, medical imaging). A generic AI tool that sells to hospitals or healthcare companies does NOT qualify.
+
+For fintech: the product must solve a core financial services workflow (lending decisions, underwriting, claims processing, fraud detection, payments infrastructure, regulatory compliance, portfolio management, insurance operations, wealth management). A generic AI tool that merely sells to banks, insurers, or financial services companies does NOT qualify. Specifically reject: cybersecurity products, sales automation tools, marketing tools, HR tools, and general productivity software sold to fintech customers.
+
+For life sciences: the product must solve a core life sciences workflow (drug discovery, clinical trials, genomics, pathology, pharmacovigilance, biomarker analysis, lab automation). Generic tools sold to biotech or pharma companies do NOT qualify.
+
+Also reject immediately regardless of vertical mentions:
+- Foundation model or frontier model companies whose core product is a general-purpose AI platform (examples: companies building "world models", "foundation models", "general AI", or "AI infrastructure" that plans to apply it to verticals later)
+- Companies with zero traction signals — no customers, no design partners, no pilots, no revenue mentioned, and language like "models could roll out in about a year" or "planning to target healthcare"
+- Academic spinouts or research labs that have not yet shipped a product to paying customers
+
+The test: does the company have a specific product deployed to specific customers in a specific vertical workflow RIGHT NOW? If the answer is "not yet" or "planning to", reject it.
+
+If the company's product is a horizontal tool (applies to any industry) that happens to have financial services, healthcare, or life sciences as one of many customer segments, set relevant: false with reason "horizontal product, not genuinely vertical AI".
+
 Output strict JSON only:
 
 {
@@ -103,11 +235,29 @@ Output strict JSON only:
   "oneLiner": "<one-sentence description of what the company does, or null>",
   "reason": "<short explanation, 1 sentence>"
 }`,
-  buildUser: ({ title, url, content }: { title: string; url: string; content: string }) =>
-    `Search result:
+  buildUser: ({
+    title,
+    url,
+    content,
+    constraints,
+  }: {
+    title: string;
+    url: string;
+    content: string;
+    constraints?: { verticals: string[]; stages: string[] };
+  }) => {
+    const constraintLines: string[] = [];
+    if (constraints?.verticals && constraints.verticals.length > 0) {
+      constraintLines.push(`REQUIRED VERTICALS: ${constraints.verticals.join(", ")} — reject if the company does not operate in one of these verticals.`);
+    }
+    if (constraints?.stages && constraints.stages.length > 0) {
+      constraintLines.push(`REQUIRED STAGES: ${constraints.stages.join(", ")} — reject if the company's funding stage does not match.`);
+    }
+    return `Search result:
 Title: ${title}
 URL: ${url}
 Snippet: ${content}
-
-Is this a relevant Vertical AI company for Proofpoint?`,
+${constraintLines.length > 0 ? `\nHARD CONSTRAINTS (must satisfy ALL):\n${constraintLines.join("\n")}\n` : ""}
+Is this a relevant Vertical AI company for Proofpoint?`;
+  },
 };

@@ -34,11 +34,12 @@ export default async function CompanyDetailPage({
   } catch {}
 
   return (
-    <main className="container mx-auto px-6 py-8">
+    <main className="container mx-auto max-w-7xl px-6 py-10">
       <CompanyDetail
         id={company.id}
         name={company.name}
         website={company.website}
+        sourceUrl={company.sourceUrl}
         oneLiner={company.oneLiner}
         vertical={company.vertical}
         stage={company.stage}

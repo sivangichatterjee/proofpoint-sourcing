@@ -20,6 +20,22 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // Direct thesisFit replacement (used by eval model adoption)
+  const raw = body as Record<string, unknown>;
+  if (raw.thesisFit !== undefined) {
+    try {
+      const company = await db.company.findUnique({ where: { id } });
+      if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+      const updated = await db.company.update({
+        where: { id },
+        data: { thesisFit: raw.thesisFit as string },
+      });
+      return NextResponse.json(updated);
+    } catch {
+      return NextResponse.json({ error: "Update failed" }, { status: 500 });
+    }
+  }
+
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
