@@ -37,12 +37,17 @@ export async function tavilySearch(
         "fiercebiotech.com",
         "endpts.com",
         "statnews.com",
+        "medcitynews.com",
         "mobihealthnews.com",
         "rockhealth.com",
+        "biospace.com",
+        "biopharmadive.com",
         // Fintech (Proofpoint focus)
         "finovate.com",
         "americanbanker.com",
         "pymnts.com",
+        "tearsheet.co",
+        "fintechfutures.com",
         // General AI/tech
         "venturebeat.com",
         "sifted.eu",

@@ -101,6 +101,17 @@ export function RunScanButton() {
     setDone(false);
   }
 
+  function hasPersistedCompletedScan(): boolean {
+    const persistedResult = sessionStorage.getItem(SCAN_RESULT_KEY);
+    if (!persistedResult) return false;
+    try {
+      const parsed = JSON.parse(persistedResult) as PersistedScanResult;
+      return Boolean(parsed.completed || parsed.error);
+    } catch {
+      return false;
+    }
+  }
+
   function syncFromSessionStorage() {
     const running = sessionStorage.getItem(SCAN_RUNNING_KEY) === "true";
     setPersistedRunning(running);
@@ -312,6 +323,10 @@ export function RunScanButton() {
   }
 
   function handleOpenChange(v: boolean) {
+    if (v && !scanIsRunning && hasPersistedCompletedScan()) {
+      clearPersistedCompletedState();
+      resetLocalScanState();
+    }
     setOpen(v);
     if (!v && loading) {
       toast("Scan running in background — new companies will appear in the queue automatically", {
