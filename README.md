@@ -1,89 +1,584 @@
 # Proofpoint Capital Sourcing Tool
 
-An analyst-facing sourcing workflow for discovering, profiling, and scoring Vertical AI startups against Proofpoint Capital's investment thesis.
+A lightweight internal sourcing prototype for discovering, structuring, and reviewing Vertical AI companies against a fund-specific thesis.
 
-The app combines:
-- an agentic web-sourcing loop
-- structured company profile generation
-- thesis-fit scoring against a fund-specific rubric
-- human-in-the-loop editing and regeneration
-- model comparison for thesis assessments
+This project was built for the Proofpoint Capital AI Intern exercise. The product is intentionally shaped around the requested workflow:
 
-Built with Next.js App Router, React 19, Prisma + SQLite/libSQL, Together, OpenAI, and Tavily.
+1. scan public information
+2. surface candidate companies
+3. generate structured profiles and thesis-fit analysis
+4. let a human reviewer inspect, edit, and override
+5. return everything to a searchable queue
 
-## What the product does
+The prototype favors clarity, speed, and analyst usability over breadth or overengineering.
 
-The tool is designed around an analyst workflow rather than a generic AI demo:
+## What the app does
 
-- `Run sourcing scan` searches the web for a narrow batch of high-signal companies per run, aiming for at least 3 and stretching to 5 when results are coming in quickly
-- each company is profiled into a structured memo-like view with description, product summary, target customer, stage, and extracted signals
-- the system assigns a `Thesis Fit` score and recommendation against Proofpoint's investment thesis
-- analysts can edit notes, regenerate profile/thesis sections with guidance, and compare alternative thesis analyses from other models
+The app gives a Proofpoint team member a simple review loop:
 
-Two product choices are intentional:
+- run a sourcing scan from a natural-language query
+- watch scan progress live or let it continue in the background
+- review surfaced companies in a central queue
+- search, sort, filter, and resize queue columns
+- open a company detail page with:
+  - structured AI-generated company profile
+  - source-backed signals
+  - AI-generated thesis-fit score and rationale
+  - manual workflow status
+  - reviewer notes
+  - next step
+  - thesis comparison against a second model
+- regenerate profile or thesis with reviewer guidance
+- keep everything visible in the queue for follow-up
 
-- The scan stops after a small batch of high-signal companies instead of maximizing recall. The goal is analyst throughput, not a giant noisy list.
-- Thesis fit is a `fund-fit` score, not just a `company quality` score. Great late-stage companies can still score poorly if they are outside Proofpoint's entry window.
+## Feature checklist against the assignment
 
-## Current thesis logic
+This prototype covers the requested scope:
 
-The thesis prompt evaluates companies in two layers:
+- Agent-led sourcing flow over public information
+- Central queue / pipeline view
+- Search, filter, and sort
+- Structured company profile generation
+- AI-generated thesis-fit reasoning and recommendation
+- Workflow states:
+  - `NEW`
+  - `REVIEWING`
+  - `PRIORITY_FOLLOW_UP`
+  - `PASS`
+- Human notes and next-step tracking
+- Human override of AI output through:
+  - regeneration with guidance
+  - status changes
+  - notes
+  - thesis comparison selection
 
-1. `Mandate gate`
-   Proofpoint is treated as an early-stage fund with a core entry window of `Pre-seed` through `Series B`. `Series C+` or clearly late-stage companies are capped low even if they are strong businesses.
+## Example reviewer flows to try
 
-2. `Vertical AI quality`
-   Within the mandate, the model looks for:
-   - clear vertical focus in healthcare, life sciences, or financial services
-   - vertical-specific workflow depth rather than a horizontal AI wrapper
-   - domain-credible founders
-   - a defensible technical wedge
-   - traction such as paying customers, pilots, or named partners
+### Flow 1: Healthcare seed sourcing
 
-This is encoded in [src/lib/thesis.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/lib/thesis.ts) and [src/lib/prompts.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/lib/prompts.ts).
+Use this query:
 
-## Architecture
+```txt
+AI healthcare startup raised seed Series A
+```
+
+Try:
+
+1. Run a scan
+2. Open one returned company
+3. Review the profile and thesis
+4. Add a note
+5. Change status to `REVIEWING` or `PRIORITY_FOLLOW_UP`
+6. Return to queue and verify the state persists
+
+### Flow 2: Fintech sourcing
+
+Use this query:
+
+```txt
+AI fintech startup raises funding
+```
+
+Try:
+
+1. Run the scan
+2. Use queue filters to isolate vertical and status
+3. Inspect whether the surfaced company is truly workflow-specific or more horizontal
+4. Compare the current thesis with the alternative model
+
+### Flow 3: Human-in-the-loop thesis refinement
+
+Open a company and use thesis regeneration guidance like:
+
+```txt
+be stricter about stage and fund fit
+```
+
+or
+
+```txt
+focus more on founder domain background
+```
+
+Then verify that:
+
+- the regenerated thesis reflects the requested emphasis
+- the recommendation still follows the score band
+- the human reviewer can keep or override the updated view
+
+## Product philosophy
+
+This is not a generic startup-ranking app. It is an analyst workflow tool.
+
+Two decisions shape the product:
+
+### 1. Small-batch retrieval instead of exhaustive retrieval
+
+The sourcing agent aims to find a small batch of usable companies, not flood the queue.
+
+Current scan behavior:
+
+- tries to get at least `3` companies
+- can opportunistically return up to `5` if results are strong and fast
+- has a soft time budget around `60s`
+- has a hard stop around `120s`
+
+That is deliberate. In this workflow, analyst attention is the scarce resource, not screen real estate.
+
+### 2. Thesis score means fund fit, not just company quality
+
+A company can be impressive and still be a weak fit for this fund.
+
+The current thesis prompt is intentionally mandate-aware. It evaluates:
+
+1. whether the company fits the encoded Proofpoint mandate
+2. then how strong the company is within that mandate
+
+This is why late-stage category leaders can still score low with a `PASS`.
+
+## Thesis logic
+
+The thesis prompt currently treats the fund as an early-stage Vertical AI investor and applies a hard stage gate before company-quality scoring.
+
+At a high level, the model asks:
+
+1. Is this in the right thesis universe?
+   - healthcare
+   - life sciences
+   - financial services / fintech
+
+2. Is it truly vertical AI?
+   - workflow-specific
+   - tied to industry-specific data, regulation, or operations
+   - not just a horizontal model sold into a vertical
+
+3. Is it a fit for the fund entry point?
+   - the current prompt treats `Pre-seed` through `Series B` as the core window
+   - clearly later-stage companies are penalized heavily
+
+4. Within that, how strong is it?
+   - founder domain credibility
+   - technical wedge
+   - traction
+   - buyer clarity
+   - defensibility
+
+This logic lives in:
+
+- [src/lib/thesis.ts](src/lib/thesis.ts)
+- [src/lib/prompts.ts](src/lib/prompts.ts)
+
+## Why this tech stack
+
+### Why Next.js instead of FastAPI + separate frontend
+
+I chose Next.js for the prototype because the assignment is fundamentally a workflow/UI problem as much as an API problem.
+
+Why this was a good fit:
+
+- one repo for frontend and backend
+- route handlers for API endpoints without a separate service
+- shared TypeScript types across UI, agent logic, and API layer
+- simple deployment path to Vercel
+- faster iteration for a prototype under time constraints
+
+Why not FastAPI/Python for this version:
+
+- it would have introduced a second runtime, second deployment path, and cross-stack contracts
+- the hardest part of the assignment is not numerical modeling or heavy Python data tooling
+- the app benefits a lot from tight UI/backend coupling
+
+That said, FastAPI would be a strong option for a future version if the system evolved toward:
+
+- background job orchestration
+- heavier scraping / crawling
+- asynchronous retrieval workers
+- richer evaluation pipelines
+
+### Why Prisma + SQLite / libSQL
+
+For a prototype, this gave a very good balance of simplicity and portability.
+
+- local development is easy with SQLite
+- deployment can move to hosted libSQL via Turso
+- schema stays explicit and easy to reason about
+- no need to stand up Postgres just to satisfy the exercise
+
+### Why Tavily for retrieval
+
+The requirement explicitly calls for public information and lightweight inputs. Tavily was a practical way to:
+
+- run web search without building custom scraping infra
+- return URLs plus content snippets
+- support query variation quickly
+
+### Why Together + OpenAI
+
+I wanted:
+
+- an open-model path for the main agent and generation loop
+- a reliable comparison path for thesis evaluation
+
+So the current setup is:
+
+- Together for the main open-model path
+- OpenAI for the secondary thesis comparison
+
+That let me evaluate different calibration and reliability tradeoffs without building provider-specific code everywhere.
+
+## Current model choices
+
+### Primary model
+
+Main generation tasks use:
+
+```txt
+meta-llama/Llama-3.3-70B-Instruct-Turbo
+```
+
+It is currently used for:
+
+- relevance filtering
+- profile generation
+- thesis scoring
+- combined company analysis
+- agent planning
+
+Why I chose it:
+
+- strong enough for rubric-following and structured synthesis
+- better stability than some of the other models I tested in this workflow
+- practical latency for an interactive prototype
+
+### Thesis comparison model
+
+The comparison panel currently uses:
+
+```txt
+gpt-4o-mini
+```
+
+Why:
+
+- fast
+- reliable structured output
+- gives a clean second opinion without adding too much latency or flaky formatting
+
+I intentionally reduced the comparison panel to two models:
+
+- current thesis
+- one alternative thesis
+
+That was a product decision. A third model sounded attractive, but in practice it kept adding noise, latency, or unreliable JSON behavior.
+
+## Architecture overview
 
 ### Frontend
 
-- [src/app/page.tsx](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/app/page.tsx): sourcing queue
-- [src/components/run-scan-button.tsx](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/components/run-scan-button.tsx): scan modal, SSE progress, background scan persistence
-- [src/components/company-detail.tsx](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/components/company-detail.tsx): company profile, thesis fit, regeneration, notes, model comparison
-- [src/components/scan-banner.tsx](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/components/scan-banner.tsx): background-scan completion banner
+- [src/app/page.tsx](src/app/page.tsx)
+  - queue view
+  - top-level controls
+- [src/components/queue-table.tsx](src/components/queue-table.tsx)
+  - sortable columns
+  - resizable columns
+  - row navigation
+- [src/components/run-scan-button.tsx](src/components/run-scan-button.tsx)
+  - scan modal
+  - SSE progress stream
+  - background persistence across navigation
+- [src/components/company-detail.tsx](src/components/company-detail.tsx)
+  - profile view
+  - thesis fit view
+  - notes
+  - next step
+  - regeneration
+  - thesis comparison
+- [src/components/scan-banner.tsx](src/components/scan-banner.tsx)
+  - persistent queue-updated banner after scan completion
 
-### Backend
+### Backend / API routes
 
-- [src/app/api/scan/route.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/app/api/scan/route.ts): starts the sourcing agent and streams progress events
-- [src/lib/agent.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/lib/agent.ts): search-plan loop, relevance filter, profile/thesis generation, dedupe, persistence
-- [src/lib/llm.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/lib/llm.ts): model routing, structured output calls, retry/fallback behavior
-- [src/lib/queryConstraints.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/src/lib/queryConstraints.ts): turns natural-language scans into vertical/stage/geography/focus constraints
+- [src/app/api/scan/route.ts](src/app/api/scan/route.ts)
+  - triggers a scan
+  - streams scan events via SSE
+- [src/app/api/scan/status/route.ts](src/app/api/scan/status/route.ts)
+  - scan status support
+- [src/app/api/companies/[id]/profile/route.ts](src/app/api/companies/[id]/profile/route.ts)
+  - regenerate structured profile
+- [src/app/api/companies/[id]/thesis-fit/route.ts](src/app/api/companies/[id]/thesis-fit/route.ts)
+  - regenerate thesis fit
+- [src/app/api/companies/[id]/eval/route.ts](src/app/api/companies/[id]/eval/route.ts)
+  - comparison thesis generation
+- [src/app/api/companies/[id]/status/route.ts](src/app/api/companies/[id]/status/route.ts)
+  - update workflow state
+- [src/app/api/companies/[id]/notes/route.ts](src/app/api/companies/[id]/notes/route.ts)
+  - notes handling
+- [src/app/api/companies/[id]/route.ts](src/app/api/companies/[id]/route.ts)
+  - company updates
 
-### Data model
+### Core libraries
 
-Prisma schema lives in [prisma/schema.prisma](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/prisma/schema.prisma).
+- [src/lib/agent.ts](src/lib/agent.ts)
+  - sourcing loop
+  - candidate filtering
+  - dedupe
+  - profile/thesis generation
+  - stage and vertical enforcement
+- [src/lib/llm.ts](src/lib/llm.ts)
+  - provider routing
+  - structured outputs
+  - retry behavior
+  - model fallback behavior
+- [src/lib/queryConstraints.ts](src/lib/queryConstraints.ts)
+  - parse natural-language scan queries into:
+    - verticals
+    - stages
+    - geographies
+    - focus terms
+- [src/lib/stage.ts](src/lib/stage.ts)
+  - stage extraction / normalization
+- [src/lib/companyDedupe.ts](src/lib/companyDedupe.ts)
+  - duplicate prevention
+- [src/lib/db.ts](src/lib/db.ts)
+  - database adapter setup
+- [src/lib/tavily.ts](src/lib/tavily.ts)
+  - Tavily search wrapper
 
-Core tables:
+## Data model
+
+The schema lives in [prisma/schema.prisma](prisma/schema.prisma).
+
+Core models:
+
 - `Company`
+  - queue entity
+  - stores profile, thesis, status, source URL, stage, next step
 - `Note`
+  - reviewer notes on a company
 - `ScanRun`
+  - metadata about past scans
 - `EvalPreference`
+  - captures which thesis analysis a reviewer preferred in the comparison flow
 
-`normalizedName` is used to reduce duplicate companies across scans.
+Important implementation detail:
 
-## Setup
+- `normalizedName` is used for dedupe so repeated scans do not keep re-surfacing the same company under minor naming variation
+
+## Agent workflow
+
+The sourcing loop is intentionally lightweight and readable.
+
+### End-to-end flow
+
+1. User enters a natural-language sourcing query
+2. Query constraints are extracted
+3. Agent planner chooses a search query
+4. Tavily returns search results
+5. Relevance filter decides which candidates are worth deeper analysis
+6. The system generates:
+   - structured company profile
+   - thesis fit
+7. Final hard checks enforce requested vertical and stage constraints before insertion
+8. New companies are written to the queue
+9. Reviewer opens a company, edits or regenerates as needed
+10. Company remains in the queue with status, notes, and next action
+
+### Why strict final checks exist
+
+The app now enforces:
+
+- requested vertical at final insertion time
+- requested stage at final insertion time
+
+This was added because otherwise the search layer could find something "close enough," but the final company shown in the queue could drift away from the user’s actual request.
+
+## AI behaviors included
+
+The assignment asked for at least two meaningful AI-powered behaviors. This prototype has several:
+
+1. **Relevance filtering**
+   - decide whether a public result is actually worth processing
+
+2. **Structured company profiling**
+   - turn messy public text into a normalized company profile
+
+3. **Thesis-fit scoring**
+   - score and recommend a company against Proofpoint’s thesis
+
+4. **Combined company analysis**
+   - generate profile and thesis together in one call when possible
+
+5. **Regeneration with analyst guidance**
+   - allow human reviewers to focus the model on specific concerns
+
+6. **Model comparison**
+   - offer a second thesis opinion for human review
+
+## Prompt design and context management
+
+The prompts are written to be:
+
+- explicit about schema
+- explicit about mandate
+- explicit about scoring bands
+- strict about not inventing missing information
+
+Key design choices:
+
+- structured outputs instead of free-form generation
+- thesis score tied to recommendation bands
+- analyst guidance treated as a hard emphasis instruction during regeneration
+- rationale must cite concrete signals
+
+This keeps the outputs more reviewable and less "AI-ish."
+
+## Error handling and fallback behavior
+
+This was an important part of the exercise, so the app handles failure at a few levels.
+
+### LLM calls
+
+Handled in [src/lib/llm.ts](src/lib/llm.ts):
+
+- provider routing by task
+- retry on malformed structured output
+- model-level fallback for some primary flows
+- comparison route disables silent fallback on purpose, because a comparison card should not pretend to be a model it is not
+
+### Agent flow
+
+Handled in [src/lib/agent.ts](src/lib/agent.ts):
+
+- duplicate companies are skipped
+- invalid or irrelevant search results are skipped
+- if combined company analysis fails, the agent falls back to separate profile and thesis calls
+- if generation still fails, that candidate is skipped rather than inserted as broken data
+
+### UI behavior
+
+- scan can continue in background
+- scan state is recoverable when the user returns to the queue
+- completion feedback is surfaced both immediately and persistently
+- empty states and partial-result scans are still visible to the reviewer
+
+## Human-in-the-loop design
+
+This was a core product goal.
+
+The reviewer can:
+
+- change workflow state
+- add notes
+- set a next step
+- regenerate profile with targeted guidance
+- regenerate thesis with targeted guidance
+- compare the current thesis with an alternative model
+- keep the current thesis or adopt the alternative one
+
+The app treats AI as a first-pass analyst assistant, not a final authority.
+
+## Local setup
 
 ### Requirements
 
 - Node.js 20+
 - npm
 
-### Environment variables
-
-Create `.env.local` with:
+### Install
 
 ```bash
-DATABASE_URL=...
-TURSO_DATABASE_URL=...
+npm install
+```
+
+### Local environment
+
+Use `.env.local` for your normal local development setup.
+
+Recommended local `.env.local`:
+
+```env
+DATABASE_URL=file:./dev.db
+TAVILY_API_KEY=your_tavily_key
+TOGETHER_API_KEY=your_together_key
+OPENAI_API_KEY=your_openai_key
+SCAN_MODE=live
+```
+
+Optional if you want local to use the hosted Turso database instead:
+
+```env
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
+```
+
+### Important note about Vercel env pull
+
+Do not let Vercel CLI overwrite your normal local `.env.local`.
+
+Instead, if you want a local copy of Vercel envs, use:
+
+```bash
+vercel env pull .env.vercel.local
+```
+
+That keeps:
+
+- `.env.local` for normal local development
+- `.env.vercel.local` as a separate Vercel reference file
+
+### Run in development mode
+
+```bash
+npm run dev
+```
+
+Open:
+
+```txt
+http://localhost:3000
+```
+
+### If you need a fresh local database
+
+```bash
+npx prisma generate
+npx prisma db push
+npx prisma db seed
+```
+
+### Production-like local test
+
+If you want to test behavior closer to Vercel:
+
+```bash
+npm run build
+npm run start
+```
+
+Difference:
+
+- `npm run dev` = development mode, hot reload, dev-only behavior
+- `npm run start` = production mode, after a successful build
+
+## Vercel deployment
+
+### Recommended production database
+
+Do not use local SQLite in production.
+
+Use Turso / libSQL.
+
+The app supports:
+
+- local SQLite for development
+- Turso for hosted deployment
+
+### Production environment variables
+
+Add these in the Vercel dashboard:
+
+```env
+TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 TAVILY_API_KEY=...
 TOGETHER_API_KEY=...
@@ -91,31 +586,66 @@ OPENAI_API_KEY=...
 SCAN_MODE=live
 ```
 
-Notes:
-- For local development, `DATABASE_URL=file:./dev.db` is enough.
-- For a hosted deployment, prefer `TURSO_DATABASE_URL` plus `TURSO_AUTH_TOKEN`. The app accepts either the Turso-style env pair or a plain `DATABASE_URL`.
-- `SCAN_MODE=mock` uses [prisma/mock-scan-results.json](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/prisma/mock-scan-results.json)
-- `SCAN_MODE=live` uses Tavily + LLMs
-- `OPENAI_API_KEY` is needed for `gpt-4o-mini` model comparison
+### If you want production to mirror your local seeded data
 
-### Install and run
+The simplest path is:
 
-```bash
-npm install
-npm run dev
+1. identify the real local SQLite file
+2. upload that DB into Turso
+3. connect Vercel to the Turso database
+
+In this project, the real local DB is typically:
+
+```txt
+dev.db
 ```
 
-Open `http://localhost:3000`.
+not `prisma/dev.db`.
 
-### Database
+### Turso upload notes
 
-If you need a fresh local DB:
+Turso may require the SQLite file to be in WAL mode before upload:
 
 ```bash
-npx prisma generate
+sqlite3 dev.db "PRAGMA journal_mode=WAL;"
+```
+
+### Alternative: initialize Turso via Prisma
+
+If you want to seed the hosted DB directly instead of uploading SQLite:
+
+```bash
+TURSO_DATABASE_URL="libsql://..." \
+TURSO_AUTH_TOKEN="..." \
 npx prisma db push
+```
+
+Then:
+
+```bash
+TURSO_DATABASE_URL="libsql://..." \
+TURSO_AUTH_TOKEN="..." \
 npx prisma db seed
 ```
+
+### Deploy
+
+Once the repo and env vars are set:
+
+```bash
+vercel --prod
+```
+
+Or use Git-based auto deployment from the connected repo.
+
+### After deploy, verify
+
+- queue loads
+- company detail pages load
+- scan works
+- profile regeneration works
+- thesis regeneration works
+- column resizing behaves correctly
 
 ## Scripts
 
@@ -126,117 +656,118 @@ npm run start
 npm run test
 ```
 
-`npm install` also runs `prisma generate` via `postinstall`, which helps Vercel builds stay in sync with the Prisma schema.
+## Tests
 
-## Testing
+Current automated tests are intentionally focused on deterministic logic seams rather than trying to mock the entire LLM workflow.
 
-The test suite is intentionally lightweight and focused on business logic that is easy to regress:
-
-- query constraint extraction
-- stage detection
-- duplicate-name normalization
-- thesis prompt mandate guardrails
-
-Tests live in:
-- [tests/query-constraints.test.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/tests/query-constraints.test.ts)
-- [tests/stage-and-dedupe.test.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/tests/stage-and-dedupe.test.ts)
-- [tests/prompts.test.ts](/Users/sivangichatterjee/Desktop/proofpoint-sourcing/tests/prompts.test.ts)
-
-Run them with:
+Run:
 
 ```bash
 npm run test
 ```
 
-### Suggested manual QA
-
-- run a live scan and confirm the agent returns at least 3 companies when possible, and can stretch up to 5 if it finds strong matches quickly
-- close the scan modal mid-run and verify the scan continues in the background
-- open a company, regenerate profile with analyst guidance, and confirm the saved profile changes
-- regenerate thesis fit and verify the mandate gate penalizes `Series C+` companies
-- open `Compare thesis analyses` and verify alternative models return structured, selectable results
-- confirm duplicate companies do not reappear across repeated scans
-
-## Deploying to Vercel
-
-This app is Vercel-friendly, but there is one important caveat: do **not** deploy it with the local SQLite file. Vercel's filesystem is ephemeral, so production should use a hosted libSQL database such as Turso.
-
-### Recommended production setup
-
-1. Create a Turso database.
-2. Get the database URL and auth token.
-3. Add these environment variables in Vercel:
+And typecheck with:
 
 ```bash
-TURSO_DATABASE_URL=libsql://...
-TURSO_AUTH_TOKEN=...
-TAVILY_API_KEY=...
-TOGETHER_API_KEY=...
-OPENAI_API_KEY=...
-SCAN_MODE=live
+npx tsc --noEmit
 ```
 
-You can also set `DATABASE_URL`, but with the current codebase the Turso-specific pair is the cleanest production path.
+Current tests cover:
 
-### One-time database initialization
+- query constraint extraction
+- stage detection
+- duplicate normalization
+- prompt contract expectations
 
-This repo does not yet have a checked-in migration history, so for the first production database setup do this locally against the remote Turso database:
+Test files:
 
-```bash
-TURSO_DATABASE_URL=libsql://...
-TURSO_AUTH_TOKEN=...
-npx prisma db push
-npx prisma db seed
-```
+- [tests/query-constraints.test.ts](tests/query-constraints.test.ts)
+- [tests/stage-and-dedupe.test.ts](tests/stage-and-dedupe.test.ts)
+- [tests/prompts.test.ts](tests/prompts.test.ts)
 
-That creates the schema and seeds the initial queue data into the hosted database.
+### Manual QA checklist
 
-### Deploy steps
+Good manual checks:
 
-1. Push the repo to GitHub.
-2. Import the repo into Vercel.
-3. Add the environment variables above in the Vercel project.
-4. Deploy.
+1. run a live scan
+2. leave the queue while scan is running, then return
+3. confirm scan state resumes
+4. inspect a surfaced company
+5. regenerate profile with guidance
+6. regenerate thesis with guidance
+7. compare current thesis with the alternative model
+8. change workflow state and add notes
+9. return to queue and confirm persistence
 
-Vercel should detect Next.js automatically. Because the repo now runs `prisma generate` in `postinstall`, you do not need a custom build command just to generate Prisma Client.
+## Key tradeoffs
 
-### After deploy
+### Why not maximize retrieval volume?
 
-- Open the production URL
-- Verify the queue loads from the hosted database
-- Run a live scan
-- Open a company detail page and confirm profile/thesis regeneration works
+Because this is an analyst workflow, not a discovery firehose. A smaller, cleaner batch is easier to review and route.
 
-If deployment fails, the most likely causes are:
-- missing environment variables
-- trying to use local SQLite instead of a hosted libSQL database
-- a production database that was never initialized with `prisma db push`
+Tradeoff:
 
-## Model setup
+- better analyst throughput
+- lower recall than a batch-heavy crawler
 
-Current main thesis-generation path uses:
-- `meta-llama/Llama-3.3-70B-Instruct-Turbo`
+### Why Next.js instead of splitting frontend and backend?
 
-Current comparison panel uses:
-- `gpt-4o-mini`
+Because for this assignment, a single full-stack codebase improved iteration speed and reduced glue code.
 
-The Together call path uses structured outputs via `json_schema` when supported.
+Tradeoff:
 
-## Interview framing
+- simpler prototype
+- less specialized than a larger Python + worker architecture
 
-If asked why the tool is built this way, the shortest accurate answer is:
+### Why only one alternative model in thesis comparison?
 
-`This is an analyst workflow optimizer, not a general company-ranking demo. The system first checks fund mandate, then evaluates thesis quality, and it returns a small batch of high-signal companies so the human reviewer can move quickly without being flooded with noisy candidates.`
+Because trust and speed were more important than model count. Several candidate third models introduced too much latency, calibration drift, or structured-output fragility.
 
-Useful talking points:
-- the thesis score is a `fund-fit` score, not just a company-quality score
-- late-stage companies can still be excellent businesses but poor fits for this fund
-- model comparison is there to compare analytical usefulness, not to pretend model outputs are ground truth
-- the scan loop is deliberately capped to keep latency and review effort manageable
+Tradeoff:
 
-## Known limitations
+- less model variety
+- better clarity and reliability
 
-- LLM calibration still varies by model, especially on borderline companies
-- web search quality depends on the coverage and freshness of public sources
-- structured output reliability is much better than before, but not perfect across all Together/OpenAI models
-- the current tests cover the highest-value logic seams, not the full UI surface
+### Why strict final vertical and stage checks?
+
+Because users expect the queue to honor what they asked for. Silent drift to adjacent sectors or stages hurts trust.
+
+Tradeoff:
+
+- more predictable output
+- slightly lower recall in narrow scans
+
+## What I would do next with more time
+
+If I had more time, I would invest in four areas:
+
+1. **Explicit separation of company quality vs fund fit**
+   - right now thesis fit is a single score
+   - I would likely split it into:
+     - company quality
+     - fund fit
+
+2. **Better scan explainability**
+   - clearer reasons for zero-result or low-result scans
+   - better visibility into duplicates, skips, and broadened recovery mode
+
+3. **Background job orchestration**
+   - move long scans to durable workers rather than request-bound streaming
+   - especially useful for larger or slower retrieval loops
+
+4. **Higher-confidence evaluation set**
+   - build a curated benchmark set of companies and expected statuses
+   - use it to calibrate prompts and compare model behavior more systematically
+
+## Final note
+
+This prototype intentionally tries to feel like a practical internal analyst tool, not a flashy AI demo.
+
+The product decisions here were mostly about:
+
+- keeping the workflow understandable
+- making AI outputs inspectable and overrideable
+- preserving analyst trust
+- staying lightweight enough to build and demo cleanly
+
+That felt most aligned with the assignment’s spirit.
