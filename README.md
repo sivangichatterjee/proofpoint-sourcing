@@ -212,6 +212,25 @@ The requirement explicitly calls for public information and lightweight inputs. 
 - return URLs plus content snippets
 - support query variation quickly
 
+This was also a deliberate product choice. The prototype uses a **bounded retrieval layer**, not a fully open-ended web crawler. That helped keep the sourcing loop:
+
+- fast enough for an interactive reviewer workflow
+- cheaper to run
+- easier to debug
+- easier to explain when a reviewer asks why a company was surfaced
+
+The tradeoff is lower breadth than a larger retrieval stack. The scan is only as broad as:
+
+- the search provider's coverage
+- the agent's query strategy
+- the app's dedupe and filtering rules
+
+If I were extending this beyond the prototype, I would likely move toward a hybrid retrieval system:
+
+- broad search for first-pass discovery
+- targeted crawling for validation and enrichment
+- source-specific expansion for higher-value domains like funding news, launch posts, and company pages
+
 ### Why Together + OpenAI
 
 I wanted:
@@ -709,6 +728,22 @@ Tradeoff:
 
 - better analyst throughput
 - lower recall than a batch-heavy crawler
+
+### Why not fully open-web crawling in v1?
+
+Because the assignment asked for a lightweight internal workflow using public information and simple source inputs, not a full retrieval-infrastructure buildout.
+
+I intentionally kept retrieval bounded so the prototype would stay:
+
+- responsive in the UI
+- inspectable during review
+- affordable to run
+- understandable when debugging odd results
+
+Tradeoff:
+
+- better control and trust
+- less breadth than a multi-provider crawler or larger asynchronous sourcing system
 
 ### Why Next.js instead of splitting frontend and backend?
 
