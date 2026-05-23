@@ -8,6 +8,8 @@ const BodySchema = z.object({
   section: z.enum(["profile", "thesisFit", "company"]),
 });
 
+const TRACKED_COMPANY_FIELDS = new Set(["vertical", "stage"]);
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -53,6 +55,13 @@ export async function PATCH(
 
     if (section === "company") {
       updateData[field] = value;
+      if (TRACKED_COMPANY_FIELDS.has(field)) {
+        const humanEdits: Record<string, boolean> = company.humanEdits
+          ? JSON.parse(company.humanEdits)
+          : {};
+        humanEdits[`${section}.${field}`] = true;
+        updateData.humanEdits = JSON.stringify(humanEdits);
+      }
     } else {
       const jsonStr =
         section === "profile" ? company.profile : company.thesisFit;

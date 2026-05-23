@@ -136,6 +136,32 @@ The current thesis prompt is intentionally mandate-aware. It evaluates:
 
 This is why late-stage category leaders can still score low with a `PASS`.
 
+### 3. Prototype scope follows the current fund thesis
+
+This prototype is intentionally optimized for the three thesis verticals encoded into the current Proofpoint workflow:
+
+- healthcare
+- life sciences
+- financial services / fintech
+
+That assumption shows up in both the thesis logic and the retrieval design. The goal for this version was not to build a general-purpose cross-sector company discovery engine. It was to build a higher-trust sourcing and review loop for the sectors the fund currently cares about most.
+
+## Assumptions
+
+To keep the prototype focused and high-signal, I made a few explicit assumptions:
+
+1. **The product is thesis-scoped, not sector-agnostic**
+   - the core sourcing workflow is designed around healthcare, life sciences, and fintech
+   - those sectors are the ones most directly supported by the prompts, evaluation rubric, and source pool
+
+2. **A curated source pool is preferable to unrestricted web search in v1**
+   - retrieval currently searches a bounded set of startup, funding, healthcare, life sciences, fintech, and general AI/tech publications
+   - this improves control, speed, and trust for the target workflow, even though it reduces breadth outside those sectors
+
+3. **The product should prioritize review quality over recall**
+   - a smaller set of more reviewable candidates is more useful to an analyst than a much larger set of noisy results
+   - the workflow is intentionally built around surfacing usable companies for inspection rather than exhaustive market coverage
+
 ## Thesis logic
 
 The thesis prompt currently treats the fund as an early-stage Vertical AI investor and applies a hard stage gate before company-quality scoring.
@@ -786,11 +812,21 @@ If I had more time, I would invest in four areas:
    - clearer reasons for zero-result or low-result scans
    - better visibility into duplicates, skips, and broadened recovery mode
 
-3. **Background job orchestration**
+3. **Source-evidence validation**
+   - tighten retrieval so companies are not admitted based only on broad vertical relevance
+   - require stronger source support for stage-sensitive queries like `early stage`, `seed`, or `Series A`
+   - distinguish discovery sources from validation sources, so ranking or profile articles can surface names without being treated as proof of funding stage
+
+4. **Conditional source-pool broadening**
+   - retrieval currently prioritizes a curated pool of startup, funding, fintech, healthcare, and life sciences sources to keep results higher-signal for the current thesis
+   - with more time, I would selectively broaden that pool for unsupported or niche queries rather than jumping straight to unrestricted web search
+   - that would preserve trust in the core workflow while improving coverage for adjacent sectors and less-covered sub-verticals
+
+5. **Background job orchestration**
    - move long scans to durable workers rather than request-bound streaming
    - especially useful for larger or slower retrieval loops
 
-4. **Higher-confidence evaluation set**
+6. **Higher-confidence evaluation set**
    - build a curated benchmark set of companies and expected statuses
    - use it to calibrate prompts and compare model behavior more systematically
 

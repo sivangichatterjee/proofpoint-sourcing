@@ -266,6 +266,109 @@ function EditableTextField({
   );
 }
 
+function EditableCompanyMetaField({
+  label,
+  value,
+  field,
+  companyId,
+  isEdited,
+  onRefresh,
+  placeholder,
+  displayValue,
+}: {
+  label: string;
+  value: string | null;
+  field: "vertical" | "stage";
+  companyId: string;
+  isEdited: boolean;
+  onRefresh: () => void;
+  placeholder: string;
+  displayValue?: (value: string | null) => string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const trimmed = draft.trim();
+      const res = await fetch(`/api/companies/${companyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field,
+          value: trimmed.length > 0 ? trimmed : null,
+          section: "company",
+        }),
+      });
+      if (res.ok) {
+        toast.success("Saved");
+        setEditing(false);
+        onRefresh();
+      } else {
+        toast.error("Failed to save");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="group/field">
+      <FieldLabel label={label} isEdited={isEdited}>
+        {!editing && (
+          <button
+            onClick={() => {
+              setDraft(value ?? "");
+              setEditing(true);
+            }}
+            className="opacity-0 group-hover/field:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+            aria-label={`Edit ${label}`}
+          >
+            <PencilIcon className="size-3" />
+          </button>
+        )}
+      </FieldLabel>
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={placeholder}
+            className="w-full text-lg bg-transparent border-0 border-b border-border px-0 py-1 outline-none placeholder:text-muted-foreground/50 focus:border-foreground transition-colors"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button
+              size="xs"
+              onClick={save}
+              disabled={saving}
+              className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white shadow-none border-0 transition-all duration-200 hover:scale-[1.02]"
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-lg text-foreground">
+          {displayValue ? displayValue(value) : value ?? "—"}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Editable array field ──────────────────────────────────────────────────────
 
 function EditableArrayField({
@@ -1164,16 +1267,27 @@ export function CompanyDetail({
           )}
         </div>
         <div>
-          <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
-            Vertical
-          </p>
-          <p className="text-lg text-foreground">{vertical ?? "—"}</p>
+          <EditableCompanyMetaField
+            label="Vertical"
+            value={vertical}
+            field="vertical"
+            companyId={id}
+            isEdited={humanEdits?.["company.vertical"] ?? false}
+            onRefresh={refresh}
+            placeholder="Add or update the vertical"
+          />
         </div>
         <div>
-          <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
-            Stage
-          </p>
-          <p className="text-lg text-foreground">{displayStage(stage)}</p>
+          <EditableCompanyMetaField
+            label="Stage"
+            value={stage}
+            field="stage"
+            companyId={id}
+            isEdited={humanEdits?.["company.stage"] ?? false}
+            onRefresh={refresh}
+            placeholder="Add or update the stage"
+            displayValue={(currentValue) => currentValue ?? "—"}
+          />
         </div>
       </div>
 
