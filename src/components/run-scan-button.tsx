@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2Icon, Sparkles, CheckCircle2, X, XCircle, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,9 +17,24 @@ import {
 import { Input } from "@/components/ui/input";
 
 const DEFAULT_QUERY = "AI healthcare startup raised seed Series A";
+const SCAN_RUNNING_KEY = "scanRunning";
+const SCAN_QUERY_KEY = "scanQuery";
+const SCAN_PROGRESS_LABEL_KEY = "scanProgressLabel";
+const SCAN_RESULT_KEY = "scanResult";
+const SCAN_LOG_KEY = "scanLog";
+const SCAN_STARTED_AT_KEY = "scanStartedAt";
+
+let activeScanController: AbortController | null = null;
 
 type LogEntry =
-  | { type: "constraints"; verticals: string[]; stages: string[]; timeLabel: string }
+  | {
+      type: "constraints";
+      verticals: string[];
+      stages: string[];
+      geographies?: string[];
+      focusTerms?: string[];
+      timeLabel: string;
+    }
   | { type: "iteration"; iteration: number; query: string; reasoning: string }
   | { type: "found"; company: string; vertical: string | null; stage: string | null; score: number | null }
   | { type: "skipped"; url: string; reason: string }
@@ -28,116 +42,151 @@ type LogEntry =
   | { type: "error"; message: string }
   | { type: "cancelled"; found: number };
 
+type PersistedScanResult = {
+  completed?: boolean;
+  found: number;
+  query?: string;
+  error?: boolean;
+  completedAt?: string;
+};
+
 export function RunScanButton() {
   const router = useRouter();
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(DEFAULT_QUERY);
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [done, setDone] = useState(false);
-  const [runMode, setRunMode] = useState<"live" | "background">("live");
   const [cancelling, setCancelling] = useState(false);
+  const [persistedRunning, setPersistedRunning] = useState(false);
+  const [persistedProgressLabel, setPersistedProgressLabel] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const scanIsRunning = loading || persistedRunning;
+
+  function readPersistedLog(): LogEntry[] {
+    const persisted = sessionStorage.getItem(SCAN_LOG_KEY);
+    if (!persisted) return [];
+    try {
+      return JSON.parse(persisted) as LogEntry[];
+    } catch {
+      return [];
+    }
+  }
+
   function appendLog(entry: LogEntry) {
-    setLog((prev) => [...prev, entry]);
+    const next = [...readPersistedLog(), entry];
+    sessionStorage.setItem(SCAN_LOG_KEY, JSON.stringify(next));
+    setLog(next);
+    if (entry.type === "complete") {
+      setDone(true);
+    }
+  }
+
+  function clearPersistedScanState() {
+    sessionStorage.removeItem(SCAN_RUNNING_KEY);
+    sessionStorage.removeItem(SCAN_PROGRESS_LABEL_KEY);
+    sessionStorage.removeItem(SCAN_QUERY_KEY);
+    sessionStorage.removeItem(SCAN_STARTED_AT_KEY);
+  }
+
+  function clearPersistedCompletedState() {
+    sessionStorage.removeItem(SCAN_LOG_KEY);
+    sessionStorage.removeItem(SCAN_RESULT_KEY);
+  }
+
+  function resetLocalScanState() {
+    setLog([]);
+    setDone(false);
+  }
+
+  function syncFromSessionStorage() {
+    const running = sessionStorage.getItem(SCAN_RUNNING_KEY) === "true";
+    setPersistedRunning(running);
+    setPersistedProgressLabel(sessionStorage.getItem(SCAN_PROGRESS_LABEL_KEY));
+
+    const runningQuery = sessionStorage.getItem(SCAN_QUERY_KEY);
+    if (runningQuery) setQuery(runningQuery);
+
+    const persistedLog = sessionStorage.getItem(SCAN_LOG_KEY);
+    let parsedLog: LogEntry[] = [];
+    if (persistedLog) {
+      try {
+        parsedLog = JSON.parse(persistedLog) as LogEntry[];
+        setLog(parsedLog);
+        setDone(parsedLog.some((entry) => entry.type === "complete"));
+      } catch {
+        // ignore malformed persisted log
+      }
+    }
+
+    const persistedResult = sessionStorage.getItem(SCAN_RESULT_KEY);
+    if (persistedResult) {
+      try {
+        const parsed = JSON.parse(persistedResult) as PersistedScanResult;
+        if (parsed.completed || parsed.error) {
+          setDone(Boolean(parsed.completed));
+          if (parsed.completed && !parsedLog.some((entry) => entry.type === "complete")) {
+            const next = [
+              ...parsedLog,
+              { type: "complete", created: parsed.found, skipped: 0, scanRunId: "" } as LogEntry,
+            ];
+            sessionStorage.setItem(SCAN_LOG_KEY, JSON.stringify(next));
+            setLog(next);
+          }
+        }
+      } catch {
+        // ignore malformed persisted result
+      }
+    }
   }
 
   async function handleRunScan() {
     if (!query.trim()) return;
+    if (sessionStorage.getItem(SCAN_RUNNING_KEY) === "true") {
+      setPersistedRunning(true);
+      syncFromSessionStorage();
+      toast("A scan is already running in the background");
+      return;
+    }
     setLoading(true);
+    setPersistedRunning(true);
     setDone(false);
     setLog([]);
     setCancelling(false);
-
-    if (runMode === "background") {
-      setOpen(false);
-      toast("Scan running in background — new companies will appear in the queue automatically", {
-        duration: 5000,
-      });
-      sessionStorage.setItem("scanRunning", "true");
-
-      const capturedQuery = query.trim();
-      fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: capturedQuery }),
-      }).then(async (res) => {
-        if (!res.body) return;
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let companiesFound = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const event = JSON.parse(line.slice(6)) as LogEntry;
-              appendLog(event);
-              if (event.type === "found") companiesFound++;
-              if (event.type === "complete") companiesFound = event.created;
-            } catch {}
-          }
-        }
-
-        sessionStorage.setItem("scanResult", JSON.stringify({
-          completed: true,
-          found: companiesFound,
-          query: capturedQuery,
-          completedAt: new Date().toISOString(),
-        }));
-        sessionStorage.removeItem("scanRunning");
-
-        if (pathname === "/") {
-          router.refresh();
-        }
-
-        if (Notification.permission === "granted") {
-          new Notification("Proofpoint Sourcing", {
-            body: companiesFound > 0
-              ? `Scan complete — ${companiesFound} new ${companiesFound === 1 ? "company" : "companies"} added to your queue`
-              : "Scan complete — no new companies matched your criteria",
-            icon: "/proofpoint-logo.webp",
-          });
-        }
-      }).catch(() => {
-        sessionStorage.removeItem("scanRunning");
-        sessionStorage.setItem("scanResult", JSON.stringify({
-          completed: false,
-          found: 0,
-          error: true,
-        }));
-      }).finally(() => {
-        setLoading(false);
-      });
-
-      return;
+    clearPersistedCompletedState();
+    sessionStorage.setItem(SCAN_RUNNING_KEY, "true");
+    sessionStorage.setItem(SCAN_QUERY_KEY, query.trim());
+    sessionStorage.setItem(SCAN_PROGRESS_LABEL_KEY, "Starting scan…");
+    sessionStorage.setItem(SCAN_STARTED_AT_KEY, new Date().toISOString());
+    sessionStorage.setItem(SCAN_LOG_KEY, JSON.stringify([]));
+    setPersistedProgressLabel("Starting scan…");
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
     }
 
-    // Live mode
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    activeScanController = controller;
+    const capturedQuery = query.trim();
 
     try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim() }),
+        body: JSON.stringify({ query: capturedQuery }),
         signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
         toast.error("Scan failed");
+        clearPersistedScanState();
+        setPersistedRunning(false);
+        sessionStorage.setItem(SCAN_RESULT_KEY, JSON.stringify({
+          completed: false,
+          found: 0,
+          error: true,
+        }));
         setLoading(false);
         return;
       }
@@ -160,15 +209,37 @@ export function RunScanButton() {
             try {
               const event = JSON.parse(line.slice(6)) as LogEntry;
               appendLog(event);
+              if (event.type === "iteration") {
+                const progressLabel = describeSearch(event.reasoning, event.iteration, event.query);
+                sessionStorage.setItem(SCAN_PROGRESS_LABEL_KEY, progressLabel);
+                setPersistedProgressLabel(progressLabel);
+              }
 
               if (event.type === "complete") {
                 setDone(true);
+                clearPersistedScanState();
+                setPersistedProgressLabel(null);
+                setPersistedRunning(false);
+                sessionStorage.setItem(SCAN_RESULT_KEY, JSON.stringify({
+                  completed: true,
+                  found: event.created,
+                  query: capturedQuery,
+                  completedAt: new Date().toISOString(),
+                }));
                 toast.success(
                   `Scan complete — ${event.created} ${
                     event.created === 1 ? "company" : "companies"
                   } found`
                 );
                 router.refresh();
+                if (Notification.permission === "granted") {
+                  new Notification("Proofpoint Sourcing", {
+                    body: event.created > 0
+                      ? `Scan complete — ${event.created} new ${event.created === 1 ? "company" : "companies"} added to your queue`
+                      : "Scan complete — no new companies matched your criteria",
+                    icon: "/proofpoint-logo.webp",
+                  });
+                }
               }
 
               if (event.type === "error") {
@@ -182,48 +253,81 @@ export function RunScanButton() {
       } catch (readErr: unknown) {
         const err = readErr as { name?: string };
         if (err?.name === "AbortError") {
-          setLog((prev) => {
-            const foundCount = prev.filter((e) => e.type === "found").length;
-            return [...prev, { type: "cancelled", found: foundCount } as LogEntry];
-          });
+          clearPersistedScanState();
+          setPersistedProgressLabel(null);
+          setPersistedRunning(false);
+          const currentLog = readPersistedLog();
+          const foundCount = currentLog.filter((e) => e.type === "found").length;
+          const next = [...currentLog, { type: "cancelled", found: foundCount } as LogEntry];
+          sessionStorage.setItem(SCAN_LOG_KEY, JSON.stringify(next));
+          setLog(next);
           router.refresh();
         } else {
+          clearPersistedScanState();
+          setPersistedProgressLabel(null);
+          setPersistedRunning(false);
+          sessionStorage.setItem(SCAN_RESULT_KEY, JSON.stringify({
+            completed: false,
+            found: 0,
+            error: true,
+          }));
           toast.error("Network error — scan failed");
         }
       }
     } catch (err: unknown) {
       const e = err as { name?: string };
       if (e?.name !== "AbortError") {
+        clearPersistedScanState();
+        setPersistedProgressLabel(null);
+        setPersistedRunning(false);
+        sessionStorage.setItem(SCAN_RESULT_KEY, JSON.stringify({
+          completed: false,
+          found: 0,
+          error: true,
+        }));
         toast.error("Network error — scan failed");
       }
     } finally {
       setLoading(false);
       setCancelling(false);
+      if (activeScanController === controller) {
+        activeScanController = null;
+      }
       abortControllerRef.current = null;
     }
   }
 
   function handleCancelScan() {
-    if (abortControllerRef.current) {
+    const controller = abortControllerRef.current ?? activeScanController;
+    if (controller) {
       setCancelling(true);
-      abortControllerRef.current.abort();
+      controller.abort();
+      return;
     }
+    clearPersistedScanState();
+    setPersistedRunning(false);
+    setPersistedProgressLabel(null);
+    toast("Cleared stale scan state");
   }
 
   function handleOpenChange(v: boolean) {
     setOpen(v);
-    // Only reset state if no scan is running
-    if (!v && !loading) {
-      setLog([]);
-      setDone(false);
+    if (!v && loading) {
+      toast("Scan running in background — new companies will appear in the queue automatically", {
+        duration: 5000,
+      });
+    }
+    // Only reset state if no scan is running and there is no completed run to review.
+    if (!v && !scanIsRunning && !done) {
+      resetLocalScanState();
+      clearPersistedCompletedState();
     }
   }
 
-  function handleRunModeChange(mode: "live" | "background") {
-    setRunMode(mode);
-    if (mode === "background" && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+  function handleDismissCompletedScan() {
+    clearPersistedCompletedState();
+    resetLocalScanState();
+    setOpen(false);
   }
 
   useEffect(() => {
@@ -232,6 +336,18 @@ export function RunScanButton() {
     }
     window.addEventListener("openRunScan", handleOpenEvent);
     return () => window.removeEventListener("openRunScan", handleOpenEvent);
+  }, []);
+
+  useEffect(() => {
+    syncFromSessionStorage();
+    const interval = window.setInterval(syncFromSessionStorage, 2000);
+    window.addEventListener("storage", syncFromSessionStorage);
+    window.addEventListener("focus", syncFromSessionStorage);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("storage", syncFromSessionStorage);
+      window.removeEventListener("focus", syncFromSessionStorage);
+    };
   }, []);
 
   const showLog = log.length > 0;
@@ -266,7 +382,7 @@ export function RunScanButton() {
           onClick={() => setOpen(true)}
           className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white shadow-none border-0 transition-all duration-200 hover:scale-[1.03] hover:shadow-md font-medium px-5 py-2.5 text-sm"
         >
-          {loading && !open ? (
+          {scanIsRunning && !open ? (
             <>
               <Loader2Icon className="size-4 mr-2 animate-spin" />
               Scan running…
@@ -287,7 +403,7 @@ export function RunScanButton() {
             Run sourcing scan
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-            The agent searches the web across multiple queries, filters for Vertical AI companies matching Proofpoint&apos;s thesis, and generates a profile and thesis assessment for each result. This may take <strong className="text-foreground font-medium">60–90 seconds</strong>.
+            Search the web, filter for Proofpoint-aligned Vertical AI companies, and generate profiles plus thesis assessments. Usually takes <strong className="text-foreground font-medium">60–90 seconds</strong>.
           </DialogDescription>
         </DialogHeader>
 
@@ -300,54 +416,23 @@ export function RunScanButton() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                disabled={loading}
+                disabled={scanIsRunning}
                 placeholder="e.g. AI healthcare startup raised seed"
                 className="border-0 border-b border-border rounded-none bg-transparent px-0 py-2 focus-visible:ring-0 focus-visible:border-foreground transition-colors"
               />
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <span className="text-xs text-muted-foreground">Run mode:</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleRunModeChange("live")}
-                  className={cn(
-                    "text-xs px-2.5 py-1 rounded-md border transition-colors",
-                    runMode === "live"
-                      ? "border-[var(--proofpoint-orange)] text-[var(--proofpoint-orange)] bg-[var(--proofpoint-orange)]/8"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/40"
-                  )}
-                >
-                  Watch live
-                </button>
-                <button
-                  onClick={() => handleRunModeChange("background")}
-                  className={cn(
-                    "text-xs px-2.5 py-1 rounded-md border transition-colors",
-                    runMode === "background"
-                      ? "border-[var(--proofpoint-orange)] text-[var(--proofpoint-orange)] bg-[var(--proofpoint-orange)]/8"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/40"
-                  )}
-                >
-                  Run in background
-                </button>
-              </div>
             </div>
           </div>
         )}
 
         {showLog && (
           <div className="max-h-80 overflow-y-auto space-y-3 py-2">
-            {loading && runMode === "background" && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pb-2 border-b border-border mb-1">
-                <Loader2Icon className="size-3 animate-spin shrink-0" />
-                Scan running in background — results appear in queue as they are found
-              </div>
-            )}
             {log.map((entry, i) => {
               if (entry.type === "constraints") {
                 const pills: string[] = [
                   ...entry.verticals,
                   ...entry.stages,
+                  ...(entry.geographies ?? []),
+                  ...(entry.focusTerms ?? []),
                   entry.timeLabel,
                 ];
                 return (
@@ -427,7 +512,7 @@ export function RunScanButton() {
               // skipped entries are not shown to the analyst
               return null;
             })}
-            {loading && runMode === "live" && (
+            {loading && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground pl-3">
                 <Loader2Icon className="size-4 animate-spin shrink-0" />
                 Searching...
@@ -439,25 +524,34 @@ export function RunScanButton() {
         <DialogFooter>
           {done ? (
             <Button
-              onClick={() => handleOpenChange(false)}
+              onClick={handleDismissCompletedScan}
               className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white"
             >
               Done
             </Button>
-          ) : loading && runMode === "background" ? (
+          ) : scanIsRunning && !loading ? (
             <div className="flex items-center justify-between w-full">
               <span className="text-sm text-muted-foreground flex items-center gap-2">
                 <Loader2Icon className="size-3.5 animate-spin" />
-                Scanning in background…
+                {persistedProgressLabel ?? "Scan running in background…"}
               </span>
-              <Button
-                variant="outline"
-                onClick={handleCancelScan}
-                disabled={cancelling}
-                className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive text-sm"
-              >
-                {cancelling ? "Cancelling…" : "Cancel scan"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCancelScan}
+                  disabled={cancelling}
+                  className="text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
+                >
+                  {cancelling ? "Cancelling…" : "Cancel scan"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleOpenChange(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -488,7 +582,7 @@ export function RunScanButton() {
               )}
               <Button
                 onClick={handleRunScan}
-                disabled={loading || !query.trim()}
+                disabled={scanIsRunning || !query.trim()}
                 className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white border-0 shadow-none disabled:opacity-50"
               >
                 {loading ? (

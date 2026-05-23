@@ -41,8 +41,11 @@ export async function POST(req: Request) {
       try {
         await runScan({
           query,
-          goal: 5,
-          maxIterations: 5,
+          goal: 3,
+          maxGoal: 5,
+          maxIterations: 4,
+          softTimeBudgetMs: 60_000,
+          hardTimeBudgetMs: 120_000,
           onProgress: emit,
           signal: reqSignal,
         });

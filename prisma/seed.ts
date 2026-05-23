@@ -2,7 +2,18 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
-const adapter = new PrismaLibSql({ url: process.env.DATABASE_URL! });
+const url = process.env.TURSO_DATABASE_URL ?? process.env.DATABASE_URL;
+const authToken =
+  process.env.TURSO_AUTH_TOKEN ?? process.env.LIBSQL_DATABASE_TOKEN;
+
+if (!url) {
+  throw new Error("Missing database URL. Set TURSO_DATABASE_URL or DATABASE_URL.");
+}
+
+const adapter = new PrismaLibSql({
+  url,
+  ...(authToken ? { authToken } : {}),
+});
 const prisma = new PrismaClient({ adapter });
 const now = new Date().toISOString();
 
@@ -88,9 +99,9 @@ const companies = [
     vertical: "Healthcare",
     stage: "Series C",
     status: "REVIEWING",
-    sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management",
+    sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases",
     rawScrapedText:
-      "Cohere Health, a Boston-based AI company that uses machine learning to streamline prior authorization decisions, has raised $50M in a Series C debt and equity round led by Deerfield Management. The platform serves major health plans including Humana, processing millions of prior authorization requests annually. Cohere's AI predicts the likelihood of approval based on clinical guidelines, automates routine approvals, and provides real-time decision support to providers at point-of-care. The company was founded in 2019 by Siva Namasivayam (CEO, former CEO of Reflexion Health), Kishore Nimmagadda (CTO), and Brett Rosen (COO). Total funding now exceeds $156M including Series A $20M (2020), Series B $36M (2021), and the recent $50M round. Customers include Humana (multi-million-member contract), several Blue Cross Blue Shield plans, and regional payers.",
+      "Cohere Health raised $90M Series C in May 2025 led by Temasek. Total funding $200M. Processes 12M+ prior auth requests annually, auto-approves up to 90% of requests. Cohere Health, a Boston-based AI company that uses machine learning to streamline prior authorization decisions, has raised $50M in a Series C debt and equity round led by Deerfield Management. The platform serves major health plans including Humana, processing millions of prior authorization requests annually. Cohere's AI predicts the likelihood of approval based on clinical guidelines, automates routine approvals, and provides real-time decision support to providers at point-of-care. The company was founded in 2019 by Siva Namasivayam (CEO, former CEO of Reflexion Health), Kishore Nimmagadda (CTO), and Brett Rosen (COO). Total funding now exceeds $156M including Series A $20M (2020), Series B $36M (2021), and the recent $50M round. Customers include Humana (multi-million-member contract), several Blue Cross Blue Shield plans, and regional payers.",
     profile: JSON.stringify({
       description:
         "Cohere Health uses AI to automate prior authorization decisions, reducing administrative burden for both health plans and providers while accelerating patient access to care.",
@@ -100,12 +111,12 @@ const companies = [
         "Health plans (national and regional payers) seeking to reduce prior auth processing costs and member friction. Buyers are typically Chief Medical Officers, VPs of Utilization Management, or Chief Operations Officers at payer organizations.",
       verticalTags: ["Prior Authorization", "Payer AI", "Utilization Management", "Healthcare AI", "Clinical Decision Support"],
       signalsExtracted: [
-        { text: "$50M Series C debt+equity (2025) led by Deerfield Management, total funding $156M+", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management" },
-        { text: "Multi-million-member contract with Humana as anchor customer", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management" },
-        { text: "Customers include Humana and several Blue Cross Blue Shield plans", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management" },
-        { text: "Founders Siva Namasivayam (CEO, former Reflexion Health CEO), Kishore Nimmagadda (CTO), Brett Rosen (COO)", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management" },
-        { text: "Processes millions of prior authorization requests annually", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management" },
-        { text: "Reduces administrative burden on both payer and provider sides — bilateral value prop", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/payers/cohere-health-snags-50m-deby-funding-round-led-deerfield-management" },
+        { text: "$90M Series C (May 2025) led by Temasek, total funding $200M", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases" },
+        { text: "Multi-million-member contract with Humana as anchor customer", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases" },
+        { text: "Customers include Humana and several Blue Cross Blue Shield plans", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases" },
+        { text: "Founders Siva Namasivayam (CEO, former Reflexion Health CEO), Kishore Nimmagadda (CTO), Brett Rosen (COO)", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases" },
+        { text: "Processes 12M+ prior authorization requests annually, auto-approves up to 90% of requests", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases" },
+        { text: "Reduces administrative burden on both payer and provider sides — bilateral value prop", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases" },
       ],
       stage: "Series C",
       _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
@@ -114,7 +125,7 @@ const companies = [
       score: 7,
       recommendation: "REVIEWING",
       rationale:
-        "Strong thesis alignment on the product side — prior authorization is one of healthcare's most painful administrative workflows and a real vertical AI opportunity. The team has domain pedigree and the customer base (Humana, multiple Blues plans) demonstrates clear payer adoption. Series C is at the upper edge of our entry range but the regulatory complexity and embedded distribution justify a closer look. Worth diligencing for a potential follow-on or evaluating their competitive landscape (Olive, Myndshft) before deciding.",
+        "Strong thesis alignment on the product side — prior authorization is one of healthcare's most painful administrative workflows and a real vertical AI opportunity. The team has domain pedigree and the customer base (Humana, multiple Blues plans) demonstrates clear payer adoption. Series C at $200M total funding is at the upper edge of our entry range but the 12M+ annual prior auth requests and 90% auto-approval rate are concrete scale signals that justify a closer look. Worth diligencing for a potential follow-on or evaluating their competitive landscape (Olive, Myndshft) before deciding.",
       _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
     }),
   },
@@ -199,9 +210,9 @@ const companies = [
     vertical: "Life Sciences",
     stage: "Series B",
     status: "REVIEWING",
-    sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding",
+    sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests",
     rawScrapedText:
-      "Inito, a fertility and women's health technology company, has raised $30M in Series B funding led by Lightspeed Venture Partners with participation from Sequoia Capital India (Peak XV Partners), Endiya Partners, and Y Combinator. The company makes a smartphone-connected hormone testing device that measures four key fertility hormones (LH, E3G, PdG, FSH) from a single urine sample, with ML-based predictions of fertile windows, ovulation confirmation, and luteal phase health. Founded in 2018 by Aayush Rai (CEO) and Varun A.V. (CTO), both engineers from IIT. The company has shipped devices to 100,000+ users across 100+ countries and processed over 5 million hormone tests. Total funding now $50M including a $5M seed and $15M Series A. Inito recently launched a B2B partnership with Boston IVF to enable at-home cycle monitoring for IVF patients, reducing clinic visits by an estimated 40%.",
+      "Inito raised $29M Series B in December 2025 led by Bertelsmann India Investments and Fireside Ventures. Total funding $45M. Platform has analyzed 30M+ hormone data points since 2021. Expanding from fertility into broader at-home diagnostics using AI-engineered antibodies. Inito, a fertility and women's health technology company, has raised $30M in Series B funding led by Lightspeed Venture Partners with participation from Sequoia Capital India (Peak XV Partners), Endiya Partners, and Y Combinator. The company makes a smartphone-connected hormone testing device that measures four key fertility hormones (LH, E3G, PdG, FSH) from a single urine sample, with ML-based predictions of fertile windows, ovulation confirmation, and luteal phase health. Founded in 2018 by Aayush Rai (CEO) and Varun A.V. (CTO), both engineers from IIT. The company has shipped devices to 100,000+ users across 100+ countries and processed over 5 million hormone tests. Total funding now $50M including a $5M seed and $15M Series A. Inito recently launched a B2B partnership with Boston IVF to enable at-home cycle monitoring for IVF patients, reducing clinic visits by an estimated 40%.",
     profile: JSON.stringify({
       description:
         "Inito combines a smartphone-connected hormone testing device with machine learning to provide at-home fertility and women's health monitoring across the full reproductive cycle.",
@@ -211,12 +222,12 @@ const companies = [
         "Direct-to-consumer initially: women actively trying to conceive, with secondary expansion into fertility clinics and IVF centers seeking remote patient monitoring capabilities.",
       verticalTags: ["Women's Health", "Fertility Tech", "FemTech", "Hormone Testing", "Reproductive Health"],
       signalsExtracted: [
-        { text: "$30M Series B (2026) led by Lightspeed, total funding $50M with Peak XV and YC participation", source: "ai", sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding" },
-        { text: "100,000+ shipped devices across 100+ countries, 5M+ hormone tests processed", source: "ai", sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding" },
-        { text: "B2B partnership with Boston IVF reducing clinic visits by 40% for IVF cycle monitoring", source: "ai", sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding" },
-        { text: "Founders Aayush Rai (CEO) and Varun A.V. (CTO), both IIT engineers", source: "ai", sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding" },
-        { text: "Four-hormone single-cassette test is technically differentiated from single-hormone competitors", source: "ai", sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding" },
-        { text: "Expansion from D2C into clinic partnerships demonstrates market discipline", source: "ai", sourceUrl: "https://www.fiercebiotech.com/medtech/fertility-tech-firm-inito-raises-30m-series-b-funding" },
+        { text: "$29M Series B (December 2025) led by Bertelsmann India Investments, total funding $45M", source: "ai", sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests" },
+        { text: "30M+ hormone data points analyzed since 2021, 100,000+ shipped devices across 100+ countries", source: "ai", sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests" },
+        { text: "B2B partnership with Boston IVF reducing clinic visits by 40% for IVF cycle monitoring", source: "ai", sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests" },
+        { text: "Founders Aayush Rai (CEO) and Varun A.V. (CTO), both IIT engineers", source: "ai", sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests" },
+        { text: "Four-hormone single-cassette test is technically differentiated from single-hormone competitors", source: "ai", sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests" },
+        { text: "Expanding from fertility into broader at-home diagnostics using AI-engineered antibodies", source: "ai", sourceUrl: "https://techcrunch.com/2025/12/10/fertility-startup-inito-wants-to-use-ai-designed-antibodies-to-expand-at-home-health-tests" },
       ],
       stage: "Series B",
       _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
@@ -225,7 +236,7 @@ const companies = [
       score: 7.5,
       recommendation: "REVIEWING",
       rationale:
-        "Solid Vertical AI thesis fit with some open questions. The hormone-tracking + ML stack is technically differentiated (four hormones from one cassette is unusual), and the B2B pivot to IVF clinics is the right strategic move. Series B at $30M is in our typical range. Open questions: how much of the ML actually drives value vs. the hardware/test capability, and how defensible the B2B distribution will be against existing IVF clinic software vendors. Worth a deeper conversation with the founders to understand the technical moat. Likely REVIEWING for now; could move to PRIORITY after diligence.",
+        "Solid Vertical AI thesis fit with some open questions. The hormone-tracking + ML stack is technically differentiated (four hormones from one cassette is unusual), and the B2B pivot to IVF clinics is the right strategic move. $29M Series B at $45M total funding is squarely in our range. Open questions: how much of the ML actually drives value vs. the hardware/test capability, and how defensible the B2B distribution will be against existing IVF clinic software vendors. Worth a deeper conversation with the founders to understand the technical moat. Likely REVIEWING for now; could move to PRIORITY after diligence.",
       _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
     }),
   },

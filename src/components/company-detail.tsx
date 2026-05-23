@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Loader2Icon, PencilIcon, Plus, RefreshCwIcon, Scale, SparklesIcon, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, GitCompareArrows, Loader2Icon, PencilIcon, Plus, RefreshCwIcon, SparklesIcon, X } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -63,6 +63,18 @@ const DETAIL_BADGE_STYLES: Record<string, string> = {
   PASS: "bg-zinc-100 text-zinc-700 border border-zinc-200",
 };
 
+const MODEL_LABELS: Record<string, string> = {
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": "Llama 3.3 70B",
+  "deepseek-ai/DeepSeek-V4-Pro": "DeepSeek V4 Pro",
+  "openai/gpt-oss-20b": "GPT-OSS 20B",
+  "gpt-4o-mini": "GPT-4o Mini",
+};
+
+function displayModel(model: string | null | undefined): string {
+  if (!model) return "current model";
+  return MODEL_LABELS[model] ?? model;
+}
+
 type SerializedNote = {
   id: string;
   body: string;
@@ -73,8 +85,8 @@ type SerializedNote = {
 type EvalResult = {
   model: string;
   modelLabel: string;
-  score: number;
-  recommendation: string;
+  score: number | null;
+  recommendation: string | null;
   rationale: string;
   fallback: boolean;
 };
@@ -366,6 +378,14 @@ function SignalsField({
   const [editing, setEditing] = useState(false);
   const [editSignals, setEditSignals] = useState<SignalItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const signalInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const pendingFocusIndex = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (pendingFocusIndex.current === null) return;
+    signalInputRefs.current[pendingFocusIndex.current]?.focus();
+    pendingFocusIndex.current = null;
+  }, [editSignals.length]);
 
   function startEdit() {
     setEditSignals([...signals]);
@@ -382,11 +402,26 @@ function SignalsField({
     );
   }
 
+  function updateSignalSourceUrl(index: number, sourceUrl: string) {
+    setEditSignals((prev) =>
+      prev.map((s, i) =>
+        i === index
+          ? {
+              ...s,
+              sourceUrl: sourceUrl.trim() || undefined,
+              source: s.source === "ai" ? "analyst" : s.source,
+            }
+          : s
+      )
+    );
+  }
+
   function removeSignal(index: number) {
     setEditSignals((prev) => prev.filter((_, i) => i !== index));
   }
 
   function addSignal() {
+    pendingFocusIndex.current = editSignals.length;
     setEditSignals((prev) => [
       ...prev,
       { text: "", source: "analyst" as const, addedAt: new Date().toISOString() },
@@ -406,7 +441,12 @@ function SignalsField({
           (orig) => orig.source === "ai" && orig.text === s.text
         );
         if (originalMatch) return originalMatch;
-        return { text: s.text.trim(), source: "analyst" as const, addedAt: s.addedAt ?? new Date().toISOString() };
+        return {
+          text: s.text.trim(),
+          source: "analyst" as const,
+          addedAt: s.addedAt ?? new Date().toISOString(),
+          sourceUrl: s.sourceUrl?.trim() || undefined,
+        };
       });
 
     setSaving(true);
@@ -417,6 +457,7 @@ function SignalsField({
         body: JSON.stringify({ field: "signalsExtracted", value: finalSignals, section: "profile" }),
       });
       if (res.ok) {
+        toast.success("Signals saved");
         setEditing(false);
         setEditSignals([]);
         onRefresh();
@@ -443,23 +484,43 @@ function SignalsField({
       </FieldLabel>
       {editing ? (
         <div className="space-y-2">
+          {editSignals.length === 0 && (
+            <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+              No signals yet.
+            </div>
+          )}
           {editSignals.map((signal, i) => (
-            <div key={i} className="flex items-start gap-3 group/row">
+            <div key={i} className="flex items-start gap-3">
               <span className={cn(
                 "mt-3 size-2 rounded-full shrink-0",
                 signal.source === "analyst" ? "bg-blue-500" : "bg-[var(--proofpoint-orange)]"
               )} />
-              <input
-                type="text"
-                value={signal.text}
-                onChange={(e) => updateSignal(i, e.target.value)}
-                className="flex-1 text-base bg-transparent border-0 border-b border-border outline-none py-1 focus:border-[var(--proofpoint-orange)] transition-colors placeholder:text-muted-foreground/50"
-                placeholder="Enter signal…"
-                autoFocus={i === 0 && editSignals.length > 0}
-              />
+              <div className="flex-1 space-y-1.5">
+                <input
+                  ref={(node) => {
+                    signalInputRefs.current[i] = node;
+                  }}
+                  type="text"
+                  value={signal.text}
+                  onChange={(e) => updateSignal(i, e.target.value)}
+                  className="w-full text-base bg-transparent border-0 border-b border-border outline-none py-1 focus:border-[var(--proofpoint-orange)] transition-colors placeholder:text-muted-foreground/50"
+                  placeholder="Enter signal..."
+                  autoFocus={i === 0 && editSignals.length > 0}
+                />
+                {signal.source === "analyst" && (
+                  <input
+                    type="url"
+                    value={signal.sourceUrl ?? ""}
+                    onChange={(e) => updateSignalSourceUrl(i, e.target.value)}
+                    className="w-full text-xs bg-transparent border-0 border-b border-border/60 outline-none py-1 text-muted-foreground focus:border-[var(--proofpoint-orange)] transition-colors placeholder:text-muted-foreground/50"
+                    placeholder="Optional source URL"
+                  />
+                )}
+              </div>
               <button
                 onClick={() => removeSignal(i)}
-                className="opacity-0 group-hover/row:opacity-100 transition-opacity text-muted-foreground hover:text-destructive mt-2"
+                className="text-muted-foreground hover:text-destructive mt-2 transition-colors"
+                aria-label="Remove signal"
               >
                 <X className="size-3.5" />
               </button>
@@ -502,19 +563,29 @@ function SignalsField({
                   "mt-2 size-2 rounded-full shrink-0",
                   signal.source === "analyst" ? "bg-blue-500" : "bg-[var(--proofpoint-orange)]"
                 )} />
-                <span className="flex-1">{signal.text}</span>
-                {signal.source === "ai" && signal.sourceUrl && (
-                  <a
-                    href={signal.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                    title="Verify source"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                )}
+                <span className="min-w-0 flex-1">
+                  <span>{signal.text}</span>
+                  {signal.sourceUrl && (
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <a
+                            href={signal.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-1.5 inline-flex translate-y-0.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>Verify source</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -541,13 +612,15 @@ function SignalsField({
 function AiCardHeader({
   title,
   meta,
+  secondaryAction,
   onRegenerate,
   regenerating,
   regenerateDisabled,
   regenerateDisabledTooltip,
 }: {
   title: string;
-  meta?: { model: string; generatedAt: string };
+  meta?: { model: string; generatedAt: string; analystGuidance?: string };
+  secondaryAction?: React.ReactNode;
   onRegenerate: () => void;
   regenerating: boolean;
   regenerateDisabled: boolean;
@@ -594,28 +667,22 @@ function AiCardHeader({
         </div>
         <h2 className="text-xl font-semibold font-sans">{title}</h2>
       </div>
-      {regenerateDisabled && regenerateDisabledTooltip ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="shrink-0 inline-flex">{button}</span>
-          </TooltipTrigger>
-          <TooltipContent>{regenerateDisabledTooltip}</TooltipContent>
-        </Tooltip>
-      ) : (
-        <span className="shrink-0 inline-flex">{button}</span>
-      )}
+      <div className="shrink-0 flex items-center gap-2">
+        {secondaryAction}
+        {regenerateDisabled && regenerateDisabledTooltip ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">{button}</span>
+            </TooltipTrigger>
+            <TooltipContent>{regenerateDisabledTooltip}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="inline-flex">{button}</span>
+        )}
+      </div>
     </div>
   );
 }
-
-// ── Mismatch detection ────────────────────────────────────────────────────────
-
-const STATUS_TIER: Record<string, number> = {
-  PRIORITY_FOLLOW_UP: 2,
-  REVIEWING: 1,
-  NEW: 0,
-  PASS: -1,
-};
 
 const RECOMMENDATION_TO_STATUS: Record<string, string> = {
   PRIORITY_FOLLOW_UP: "PRIORITY_FOLLOW_UP",
@@ -623,11 +690,11 @@ const RECOMMENDATION_TO_STATUS: Record<string, string> = {
   PASS: "PASS",
 };
 
-function hasMeaningfulMismatch(currentStatus: string, newRecommendation: string): boolean {
-  const currentTier = STATUS_TIER[currentStatus] ?? 0;
-  const recommendedTier = STATUS_TIER[newRecommendation] ?? 0;
-  return Math.abs(currentTier - recommendedTier) >= 2;
-}
+const DEFAULT_NEXT_STEP_BY_STATUS: Record<string, string> = {
+  PRIORITY_FOLLOW_UP: "Reach out to founder",
+  REVIEWING: "Request pitch deck",
+  PASS: "Pass — send decline note",
+};
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -656,11 +723,17 @@ export function CompanyDetail({
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [isRegeneratingProfile, setIsRegeneratingProfile] = useState(false);
   const [showProfileRegenerateDialog, setShowProfileRegenerateDialog] = useState(false);
+  const [profileGuidance, setProfileGuidance] = useState("");
+  const [includeProfileEdits, setIncludeProfileEdits] = useState(false);
   const [isRegeneratingThesisFit, setIsRegeneratingThesisFit] = useState(false);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
-  const [mismatchSuggestion, setMismatchSuggestion] = useState<{ recommendation: string; currentStatus: string; suggestedStatus: string } | null>(null);
+  const [thesisGuidance, setThesisGuidance] = useState("");
+  const [includeThesisEdit, setIncludeThesisEdit] = useState(false);
   const [statusUpdateConfirmed, setStatusUpdateConfirmed] = useState(false);
-  const [applied, setApplied] = useState(false);
+  const [decisionStatus, setDecisionStatus] = useState(status);
+  const [decisionNextStep, setDecisionNextStep] = useState(nextStep ?? "");
+  const [decisionSaving, setDecisionSaving] = useState(false);
+  const [decisionDismissed, setDecisionDismissed] = useState(false);
   const [showEval, setShowEval] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalResults, setEvalResults] = useState<EvalResult[] | null>(null);
@@ -674,6 +747,21 @@ export function CompanyDetail({
   }, [showEval]);
 
   const isCustomNextStep = selectedNextStep === "Custom…";
+  const aiRecommendedStatus = thesisFit
+    ? RECOMMENDATION_TO_STATUS[thesisFit.recommendation] ?? null
+    : null;
+  const aiSuggestedNextStep = aiRecommendedStatus
+    ? nextStep ||
+      DEFAULT_NEXT_STEP_BY_STATUS[aiRecommendedStatus] ||
+      "Add to watch list"
+    : "";
+
+  useEffect(() => {
+    if (status !== "NEW" || !aiRecommendedStatus) return;
+    setDecisionStatus(aiRecommendedStatus);
+    setDecisionNextStep(aiSuggestedNextStep);
+    setDecisionDismissed(false);
+  }, [status, aiRecommendedStatus, aiSuggestedNextStep]);
 
   const TRACKED_PROFILE_FIELDS: Record<string, string> = {
     description: "Description",
@@ -693,16 +781,15 @@ export function CompanyDetail({
   const hasProfileEdits = Object.keys(editedProfileFields).length > 0;
 
   function handleRegenerateProfile() {
-    if (hasProfileEdits) {
-      setShowProfileRegenerateDialog(true);
-    } else {
-      runProfileRegenerate(undefined);
-    }
+    setIncludeProfileEdits(hasProfileEdits);
+    setShowProfileRegenerateDialog(true);
   }
 
-  async function runProfileRegenerate(edits: Record<string, string> | undefined) {
+  async function runProfileRegenerate() {
     setShowProfileRegenerateDialog(false);
     setIsRegeneratingProfile(true);
+    const guidance = profileGuidance.trim();
+    const edits = includeProfileEdits ? editedProfileFields : undefined;
     try {
       // Write each edited field back via PATCH so humanEdits flags are confirmed in DB
       if (edits && Object.keys(edits).length > 0) {
@@ -716,9 +803,23 @@ export function CompanyDetail({
           )
         );
       }
-      const res = await fetch(`/api/companies/${id}/profile`, { method: "POST" });
+      const res = await fetch(`/api/companies/${id}/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          humanEdits: edits,
+          analystGuidance: guidance || undefined,
+        }),
+      });
       if (res.ok) {
-        toast.success(edits ? "Profile regenerated incorporating your edits" : "Profile regenerated fresh");
+        toast.success(
+          guidance
+            ? "Profile regenerated with your guidance"
+            : edits
+              ? "Profile regenerated incorporating your edits"
+              : "Profile regenerated"
+        );
+        setProfileGuidance("");
         router.refresh();
       } else {
         toast.error("Regeneration failed");
@@ -739,38 +840,39 @@ export function CompanyDetail({
   const humanEditedRationale = hasThesisEdit ? (thesisFit?.rationale ?? undefined) : undefined;
 
   function handleRegenerateThesisFit() {
-    if (hasThesisEdit) {
-      setShowRegenerateDialog(true);
-    } else {
-      runRegenerate(undefined);
-    }
+    setIncludeThesisEdit(hasThesisEdit);
+    setShowRegenerateDialog(true);
   }
 
-  async function runRegenerate(context: string | undefined) {
+  async function runRegenerate() {
     setShowRegenerateDialog(false);
     setIsRegeneratingThesisFit(true);
+    const guidance = thesisGuidance.trim();
+    const context = includeThesisEdit ? humanEditedRationale : undefined;
     try {
       const res = await fetch(`/api/companies/${id}/thesis-fit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ humanEditedRationale: context ?? null }),
+        body: JSON.stringify({
+          humanEditedRationale: context ?? null,
+          analystGuidance: guidance || undefined,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
-        const newRecommendation: string | null = data.thesisFit?.recommendation ?? null;
         const isFallback = data.thesisFit?._meta?.fallback === true;
 
-        if (newRecommendation && !isFallback && hasMeaningfulMismatch(status, newRecommendation)) {
-          const suggestedStatus = RECOMMENDATION_TO_STATUS[newRecommendation];
-          setMismatchSuggestion({
-            recommendation: newRecommendation,
-            currentStatus: status,
-            suggestedStatus,
-          });
-        } else {
-          toast.success(context ? "Thesis regenerated incorporating your notes" : "Thesis regenerated");
+        if (!isFallback) {
+          toast.success(
+            guidance
+              ? "Thesis regenerated with your guidance"
+              : context
+                ? "Thesis regenerated incorporating your notes"
+                : "Thesis regenerated"
+          );
         }
 
+        setThesisGuidance("");
         router.refresh();
       } else {
         const data = await res.json();
@@ -819,6 +921,51 @@ export function CompanyDetail({
     router.refresh();
   }
 
+  async function saveDecision(nextStatus: string, nextAction: string) {
+    if (!nextStatus || !nextAction) return;
+    setDecisionSaving(true);
+    try {
+      const [statusRes, nextStepRes] = await Promise.all([
+        fetch(`/api/companies/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            section: "company",
+            field: "status",
+            value: nextStatus,
+          }),
+        }),
+        fetch(`/api/companies/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            section: "company",
+            field: "nextStep",
+            value: nextAction,
+          }),
+        }),
+      ]);
+
+      if (!statusRes.ok || !nextStepRes.ok) {
+        toast.error("Failed to save decision");
+        return;
+      }
+
+      setSelectedNextStep(nextAction);
+      setDecisionStatus(nextStatus);
+      setDecisionNextStep(nextAction);
+      setDecisionDismissed(true);
+      setStatusUpdateConfirmed(true);
+      setTimeout(() => setStatusUpdateConfirmed(false), 3000);
+      toast.success("Decision saved");
+      router.refresh();
+    } catch {
+      toast.error("Failed to save decision");
+    } finally {
+      setDecisionSaving(false);
+    }
+  }
+
   async function runEval() {
     setEvalLoading(true);
     try {
@@ -833,6 +980,11 @@ export function CompanyDetail({
   }
 
   async function savePreference(model: string, result: EvalResult) {
+    if (result.fallback || result.score == null || result.recommendation == null) {
+      toast.error("This analysis did not generate successfully");
+      return;
+    }
+
     setPreferredModel(model);
 
     if (model !== "current") {
@@ -1105,30 +1257,30 @@ export function CompanyDetail({
         )}
       </section>
 
-      {/* ── Thesis Fit card ────────────────────────────────────────────── */}
-      <section className="rounded-xl bg-muted/30 ring-1 ring-foreground/10 p-5">
-        <div className="mb-6">
-          <AiCardHeader
-            title="Thesis Fit"
-            meta={thesisFit?._meta}
-            onRegenerate={handleRegenerateThesisFit}
-            regenerating={isRegeneratingThesisFit}
-            regenerateDisabled={!profile}
-            regenerateDisabledTooltip={!profile ? "Generate profile first" : undefined}
-          />
-          <div className="flex justify-end mt-2">
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => setShowEval(true)}
-              disabled={!profile}
-              className="gap-2 text-base px-4 py-2"
-            >
-              <Scale className="size-4" />
-              Compare models
-            </Button>
-          </div>
-        </div>
+	      {/* ── Thesis Fit card ────────────────────────────────────────────── */}
+	      <section className="rounded-xl bg-muted/30 ring-1 ring-foreground/10 p-5">
+	        <div className="mb-5">
+	          <AiCardHeader
+	            title="Thesis Fit"
+	            meta={thesisFit?._meta}
+	            secondaryAction={
+	              <Button
+	                variant="outline"
+	                size="default"
+	                onClick={() => setShowEval(true)}
+	                disabled={!profile}
+	                className="gap-2 text-base px-4 py-2"
+	              >
+	                <GitCompareArrows className="size-4" />
+	                Compare models
+	              </Button>
+	            }
+	            onRegenerate={handleRegenerateThesisFit}
+	            regenerating={isRegeneratingThesisFit}
+	            regenerateDisabled={!profile}
+	            regenerateDisabledTooltip={!profile ? "Generate profile first" : undefined}
+	          />
+	        </div>
         {thesisFit ? (
           <div className="space-y-6">
             <div className="flex items-end gap-12">
@@ -1143,109 +1295,117 @@ export function CompanyDetail({
                   <span className="text-lg text-muted-foreground">/10</span>
                 </div>
               </div>
-              <div>
-                <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-2">
-                  Recommendation
-                </p>
-                {(() => {
-                  const recommendedStatus = RECOMMENDATION_TO_STATUS[thesisFit.recommendation] ?? null;
-                  const showApplyButton =
-                    recommendedStatus &&
-                    recommendedStatus !== status &&
-                    status === "NEW";
-                  return (
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center px-3 py-1 rounded-md text-xs font-medium tracking-wide uppercase",
-                          DETAIL_BADGE_STYLES[thesisFit.recommendation] ??
-                            "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {thesisFit.recommendation.replace("_", " ")}
-                      </span>
-                      {showApplyButton && !applied && (
-                        <button
-                          onClick={async () => {
-                            await fetch(`/api/companies/${id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                section: "company",
-                                field: "status",
-                                value: recommendedStatus,
-                              }),
-                            });
-                            setApplied(true);
-                            setTimeout(() => setApplied(false), 2000);
-                            router.refresh();
-                          }}
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-foreground/30 rounded px-2 py-1 transition-colors"
-                        >
-                          Apply
-                          <ArrowRight className="size-3" />
-                        </button>
-                      )}
-                      {applied && (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                          <CheckCircle2 className="size-3" />
-                          Applied
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-            {mismatchSuggestion && (
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    AI assessment suggests{" "}
-                    <span className="font-semibold">{mismatchSuggestion.recommendation}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Your current status is{" "}
-                    <span className="font-medium text-foreground">{mismatchSuggestion.currentStatus}</span>
-                    . Would you like to update it?
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setMismatchSuggestion(null)}
-                    className="text-sm px-4 text-muted-foreground hover:text-foreground border-border hover:border-foreground/40 transition-colors"
-                  >
-                    Keep as {mismatchSuggestion.currentStatus}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      await fetch(`/api/companies/${id}/status`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ status: mismatchSuggestion.suggestedStatus }),
-                      });
-                      setMismatchSuggestion(null);
-                      setStatusUpdateConfirmed(true);
-                      setTimeout(() => setStatusUpdateConfirmed(false), 3000);
-                      router.refresh();
-                    }}
-                    className="text-sm px-4 text-foreground border-foreground/30 hover:border-foreground hover:bg-muted/40 transition-colors"
-                  >
-                    Update to {mismatchSuggestion.suggestedStatus}
-                  </Button>
-                </div>
-              </div>
-            )}
-            {statusUpdateConfirmed && (
-              <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-muted/30 border border-border text-sm text-muted-foreground">
-                <CheckCircle2 className="size-4 shrink-0 text-foreground" />
-                <span className="text-foreground">Status updated</span>
-              </div>
-            )}
+	              <div>
+	                <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-2">
+	                  Recommendation
+	                </p>
+	                <span
+	                  className={cn(
+	                    "inline-flex items-center px-3 py-1 rounded-md text-xs font-medium tracking-wide uppercase",
+	                    DETAIL_BADGE_STYLES[thesisFit.recommendation] ??
+	                      "bg-muted text-muted-foreground"
+	                  )}
+	                >
+	                  {thesisFit.recommendation.replace("_", " ")}
+	                </span>
+	              </div>
+	            </div>
+	            {(() => {
+	              const actionable =
+	                aiRecommendedStatus &&
+	                status === "NEW" &&
+	                aiRecommendedStatus !== status &&
+	                !decisionDismissed;
+
+	              if (!actionable) return null;
+
+	              return (
+	                <div className="rounded-lg border border-[var(--proofpoint-orange)]/20 bg-[var(--proofpoint-orange)]/5 p-4">
+	                  <div>
+	                    <p className="text-sm font-semibold text-foreground">
+	                      AI recommends {displayStatus(aiRecommendedStatus).toLowerCase()}
+	                    </p>
+	                    <p className="mt-1 text-sm text-muted-foreground">
+	                      Review the draft decision, choose the right next step, then save it to the queue.
+	                    </p>
+	                  </div>
+	                  <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[var(--proofpoint-orange)]/20 pt-4 sm:grid-cols-2">
+	                    <div className="space-y-1.5">
+	                      <label className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+	                        Status
+	                      </label>
+	                      <Select
+	                        value={decisionStatus}
+	                        onValueChange={(value) => {
+	                          setDecisionStatus(value);
+	                          setDecisionNextStep(
+	                            DEFAULT_NEXT_STEP_BY_STATUS[value] ||
+	                              decisionNextStep ||
+	                              "Add to watch list"
+	                          );
+	                        }}
+	                      >
+	                        <SelectTrigger className="w-full">
+	                          <SelectValue />
+	                        </SelectTrigger>
+	                        <SelectContent>
+	                          {ALL_STATUSES.filter((s) => s !== "NEW").map((s) => (
+	                            <SelectItem key={s} value={s}>
+	                              {displayStatus(s)}
+	                            </SelectItem>
+	                          ))}
+	                        </SelectContent>
+	                      </Select>
+	                    </div>
+	                    <div className="space-y-1.5">
+	                      <label className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+	                        Next step
+	                      </label>
+	                      <Select
+	                        value={decisionNextStep}
+	                        onValueChange={setDecisionNextStep}
+	                      >
+	                        <SelectTrigger className="w-full">
+	                          <SelectValue />
+	                        </SelectTrigger>
+	                        <SelectContent>
+	                          {NEXT_STEP_OPTIONS.filter((option) => option !== "Custom…").map((option) => (
+	                            <SelectItem key={option} value={option}>
+	                              {option}
+	                            </SelectItem>
+	                          ))}
+	                        </SelectContent>
+	                      </Select>
+	                    </div>
+	                    <div className="flex items-center gap-2 sm:col-span-2">
+	                      <Button
+	                        size="sm"
+	                        onClick={() => saveDecision(decisionStatus, decisionNextStep)}
+	                        disabled={decisionSaving || !decisionStatus || !decisionNextStep}
+	                        className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white border-0"
+	                      >
+	                        {decisionSaving ? "Saving..." : "Save decision"}
+	                      </Button>
+	                      <Button
+	                        size="sm"
+	                        variant="ghost"
+	                        onClick={() => setDecisionDismissed(true)}
+	                        disabled={decisionSaving}
+	                        className="text-muted-foreground hover:text-foreground"
+	                      >
+	                        Dismiss
+	                      </Button>
+	                    </div>
+	                  </div>
+	                </div>
+	              );
+	            })()}
+	            {statusUpdateConfirmed && (
+	              <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-muted/30 border border-border text-sm text-muted-foreground">
+	                <CheckCircle2 className="size-4 shrink-0 text-foreground" />
+	                <span className="text-foreground">Decision saved</span>
+	              </div>
+	            )}
             <EditableTextField
               label="Rationale"
               value={thesisFit.rationale}
@@ -1266,15 +1426,22 @@ export function CompanyDetail({
       {/* ── Model comparison panel ─────────────────────────────────────── */}
       {showEval && (
         <div className="rounded-lg border border-border bg-background p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Scale className="size-5 text-[var(--proofpoint-orange)]" />
-              <h3 className="font-semibold text-xl">Thesis Fit — Model Comparison</h3>
+          <div className="flex items-start justify-between gap-6 mb-6 rounded-lg border border-border/70 bg-muted/20 px-4 py-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--proofpoint-orange)]/10 text-[var(--proofpoint-orange)]">
+                <GitCompareArrows className="size-4" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-xl">Compare thesis analyses</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Pick the analysis that is most useful for this company. Your choice replaces the current thesis fit.
+                </p>
+              </div>
             </div>
             <Button
               variant="ghost"
               onClick={() => { setShowEval(false); setEvalResults(null); setPreferredModel(null); }}
-              className="text-muted-foreground hover:text-foreground text-sm"
+              className="shrink-0 text-muted-foreground hover:text-foreground text-sm"
             >
               Close
             </Button>
@@ -1288,79 +1455,118 @@ export function CompanyDetail({
           )}
 
           {evalResults && thesisFit && (() => {
-            const currentPanel = {
-              model: "current",
-              modelLabel: "Current",
-              score: thesisFit.score,
-              recommendation: thesisFit.recommendation,
-              rationale: thesisFit.rationale,
+	            const currentPanel = {
+	              model: "current",
+	              modelLabel: displayModel(thesisFit._meta?.model),
+	              score: thesisFit.score,
+	              recommendation: thesisFit.recommendation,
+	              rationale: thesisFit.rationale,
               fallback: false,
               isCurrent: true,
             };
-            const allPanels = [currentPanel, ...evalResults.map((r) => ({ ...r, isCurrent: false }))];
+	            const allPanels = [currentPanel, ...evalResults.map((r) => ({ ...r, isCurrent: false }))];
             return (
               <>
-                <div className="grid grid-cols-3 gap-4">
-                  {allPanels.map((result) => (
+                <div
+                  className={cn(
+                    "grid grid-cols-1 gap-4",
+                    allPanels.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"
+                  )}
+                >
+                  {allPanels.map((result, index) => {
+                    const isPreferred = preferredModel === result.model;
+                    const isInitiallyActive = preferredModel === null && result.isCurrent;
+                    const isActive = isPreferred || isInitiallyActive;
+                    const didFail = result.fallback || result.score == null || result.recommendation == null;
+	                    const title = result.isCurrent
+	                      ? "Current analysis"
+	                      : "Alternative";
+                    const generatedBy = result.modelLabel;
+
+                    return (
                     <div
                       key={result.model}
                       className={cn(
                         "rounded-lg border p-5 flex flex-col gap-4 transition-all",
-                        preferredModel === result.model
+                        isActive
                           ? "border-[var(--proofpoint-orange)] bg-[var(--proofpoint-orange)]/5"
                           : "border-border hover:border-muted-foreground/40"
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                          {result.modelLabel}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {result.isCurrent && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                              Active
+	                      <div className="flex items-start justify-between gap-3">
+	                        <div className="min-w-0">
+	                          <span className="text-lg font-semibold text-foreground">
+	                            {title}
+	                          </span>
+	                          <p className="mt-1 text-xs text-muted-foreground">
+	                            Generated by {generatedBy}
+	                          </p>
+	                        </div>
+	                        <div className="flex items-center gap-2">
+	                          {isActive && (
+	                            <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground border border-border">
+	                              Active
+	                            </span>
+                          )}
+                          {didFail && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+                              Unavailable
                             </span>
                           )}
-                          {result.fallback && (
-                            <span className="text-xs text-destructive">Failed</span>
-                          )}
                         </div>
-                      </div>
+	                      </div>
 
-                      <div className="flex items-end gap-3">
-                        <span className="font-serif text-4xl font-medium tabular-nums">
-                          {result.score}
-                        </span>
-                        <span className="text-sm text-muted-foreground mb-1">/10</span>
-                        <span className={cn(
-                          "ml-auto inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium tracking-wide uppercase border",
-                          result.recommendation === "PRIORITY_FOLLOW_UP" && "bg-emerald-100 text-emerald-900 border-emerald-300",
-                          result.recommendation === "REVIEWING" && "bg-amber-100 text-amber-900 border-amber-300",
-                          result.recommendation === "NEW" && "bg-blue-100 text-blue-900 border-blue-300",
-                          result.recommendation === "PASS" && "bg-zinc-200 text-zinc-800 border-zinc-300",
-                        )}>
-                          {result.recommendation}
-                        </span>
-                      </div>
+                          {didFail ? (
+                            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                              Analysis unavailable
+                            </div>
+                          ) : (
+  	                      <div className="flex items-end gap-3">
+                          <span className="font-serif text-4xl font-medium tabular-nums">
+                            {result.score}
+                          </span>
+                          <span className="text-sm text-muted-foreground mb-1">/10</span>
+                          <span className={cn(
+                            "ml-auto inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium tracking-wide uppercase border",
+                            result.recommendation === "PRIORITY_FOLLOW_UP" && "bg-emerald-100 text-emerald-900 border-emerald-300",
+                            result.recommendation === "REVIEWING" && "bg-amber-100 text-amber-900 border-amber-300",
+                            result.recommendation === "NEW" && "bg-blue-100 text-blue-900 border-blue-300",
+                            result.recommendation === "PASS" && "bg-zinc-200 text-zinc-800 border-zinc-300",
+  	                        )}>
+  	                          {displayStatus(result.recommendation ?? "")}
+  	                        </span>
+  	                      </div>
+                          )}
 
-                      <p className="text-base leading-relaxed text-foreground flex-1">
-                        {result.rationale}
-                      </p>
+	                      <div className="space-y-1 flex-1">
+	                        <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+	                          Rationale
+	                        </p>
+	                      <p className="text-base leading-relaxed text-foreground flex-1">
+	                        {result.rationale}
+	                      </p>
+	                      </div>
 
-                      <Button
-                        onClick={() => savePreference(result.model, result)}
-                        variant={preferredModel === result.model ? "default" : "outline"}
-                        className={cn(
-                          "w-full mt-auto",
-                          preferredModel === result.model
-                            ? "bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white border-0"
-                            : ""
-                        )}
-                      >
-                        {preferredModel === result.model ? "✓ Active" : "This is more useful"}
-                      </Button>
-                    </div>
-                  ))}
+	                      <Button
+	                        onClick={() => savePreference(result.model, result)}
+                          disabled={didFail}
+	                        variant={isPreferred ? "default" : "outline"}
+	                        className={cn(
+	                          "w-full",
+	                          isPreferred
+	                            ? "bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white border-0"
+	                            : ""
+	                        )}
+	                      >
+	                        {isPreferred
+	                          ? "Active"
+	                          : result.isCurrent
+	                            ? "Keep current"
+	                            : "Use this analysis"}
+	                      </Button>
+	                    </div>
+	                  );
+	                })}
                 </div>
 
                 {preferenceSaved && (
@@ -1370,7 +1576,7 @@ export function CompanyDetail({
                 )}
 
                 <p className="text-xs text-muted-foreground text-center mt-6">
-                  Which analysis is most useful to you? Your preference is logged and can inform future model selection decisions.
+                  Your preference is logged as evaluation data to help judge which models produce better analyst-ready thesis work.
                 </p>
               </>
             );
@@ -1378,117 +1584,139 @@ export function CompanyDetail({
         </div>
       )}
 
-      {/* ── Regenerate profile dialog ──────────────────────────────────── */}
-      <Dialog open={showProfileRegenerateDialog} onOpenChange={setShowProfileRegenerateDialog}>
-        <DialogContent showCloseButton={false} className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-xl font-medium">
-              You have edited this profile
-            </DialogTitle>
-            <DialogDescription className="text-base text-muted-foreground">
-              How should the AI regenerate the company profile?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-3 py-2">
-            <button
-              onClick={() => runProfileRegenerate(undefined)}
-              className="group flex items-start gap-4 rounded-lg border border-border p-4 text-left hover:border-[var(--proofpoint-orange)]/60 hover:bg-[var(--proofpoint-orange)]/8 transition-all"
-            >
-              <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0 group-hover:bg-[var(--proofpoint-orange)]/15 transition-colors">
-                <RefreshCwIcon className="size-4 text-muted-foreground group-hover:text-[var(--proofpoint-orange)] transition-colors" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Fresh analysis</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Ignore my edits — regenerate from source text only
-                </p>
-              </div>
-            </button>
-            <button
-              onClick={() => runProfileRegenerate(editedProfileFields)}
-              className="group flex items-start gap-4 rounded-lg border border-border p-4 text-left hover:border-[var(--proofpoint-orange)]/60 hover:bg-[var(--proofpoint-orange)]/8 transition-all"
-            >
-              <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0 group-hover:bg-[var(--proofpoint-orange)]/15 transition-colors">
-                <SparklesIcon className="size-4 text-muted-foreground group-hover:text-[var(--proofpoint-orange)] transition-colors" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Incorporate my notes</p>
-                  <ArrowRight className="size-4 text-muted-foreground group-hover:text-[var(--proofpoint-orange)] opacity-0 group-hover:opacity-100 transition-all" />
-                </div>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Pass my edited fields to the AI as reviewer corrections
-                </p>
-              </div>
-            </button>
-          </div>
-          <div className="flex justify-end pt-1">
-            <Button
-              variant="ghost"
-              onClick={() => setShowProfileRegenerateDialog(false)}
-              className="text-muted-foreground hover:text-foreground text-sm"
-            >
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+	      {/* ── Regenerate profile dialog ──────────────────────────────────── */}
+	      <Dialog open={showProfileRegenerateDialog} onOpenChange={setShowProfileRegenerateDialog}>
+	        <DialogContent showCloseButton={false} className="max-w-md">
+	          <DialogHeader>
+	            <DialogTitle className="font-serif text-xl font-medium">
+	              Regenerate profile
+	            </DialogTitle>
+	            <DialogDescription className="text-base text-muted-foreground">
+	              {hasProfileEdits
+	                ? "Choose whether to use your edited profile fields as context. Optional guidance will be included either way."
+	                : "Add optional guidance to focus the regeneration."}
+	            </DialogDescription>
+	          </DialogHeader>
+	          {hasProfileEdits && (
+	            <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer hover:border-[var(--proofpoint-orange)]/50 hover:bg-[var(--proofpoint-orange)]/5 transition-colors">
+	              <input
+	                type="checkbox"
+	                checked={includeProfileEdits}
+	                onChange={(e) => setIncludeProfileEdits(e.target.checked)}
+	                className="mt-1 size-4 rounded border-border accent-[var(--proofpoint-orange)]"
+	              />
+	              <span>
+	                <span className="block text-sm font-semibold text-foreground">
+	                  Incorporate my edited profile
+	                </span>
+	                <span className="mt-0.5 block text-sm text-muted-foreground">
+	                  Uses your edited fields as reviewer corrections.
+	                </span>
+	              </span>
+	            </label>
+	          )}
+	          <div className="pt-2 border-t border-border/40">
+	            <label className="text-xs font-medium text-muted-foreground uppercase tracking-[0.08em] block mb-1.5">
+	              Additional guidance
+	              <span className="ml-1 normal-case font-normal text-muted-foreground/60">
+	                (optional)
+	              </span>
+	            </label>
+	            <Textarea
+	              value={profileGuidance}
+	              onChange={(e) => setProfileGuidance(e.target.value)}
+	              placeholder="e.g. focus on the technical architecture, emphasize founder background, more detail on traction metrics..."
+	              rows={2}
+	              className="resize-none text-sm"
+	            />
+	            <p className="mt-1.5 text-xs text-muted-foreground">
+	              Optional instructions for what the AI should focus on.
+	            </p>
+	          </div>
+	          <DialogFooter className="pt-1">
+	            <Button
+	              variant="ghost"
+	              onClick={() => setShowProfileRegenerateDialog(false)}
+	              className="text-muted-foreground hover:text-foreground text-sm"
+	            >
+	              Cancel
+	            </Button>
+	            <Button
+	              onClick={runProfileRegenerate}
+	              className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white border-0"
+	            >
+	              Regenerate
+	            </Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
 
-      {/* ── Regenerate thesis dialog ───────────────────────────────────── */}
-      <Dialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
-        <DialogContent showCloseButton={false} className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-xl font-medium">
-              You have edited this analysis
-            </DialogTitle>
-            <DialogDescription className="text-base text-muted-foreground">
-              How should the AI regenerate the thesis fit?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-3 py-2">
-            <button
-              onClick={() => runRegenerate(undefined)}
-              className="group flex items-start gap-4 rounded-lg border border-border p-4 text-left hover:border-[var(--proofpoint-orange)]/60 hover:bg-[var(--proofpoint-orange)]/8 transition-all"
-            >
-              <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0 group-hover:bg-[var(--proofpoint-orange)]/15 transition-colors">
-                <RefreshCwIcon className="size-4 text-muted-foreground group-hover:text-[var(--proofpoint-orange)] transition-colors" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Fresh analysis</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Ignore my edits — regenerate from the company profile only
-                </p>
-              </div>
-            </button>
-            <button
-              onClick={() => runRegenerate(humanEditedRationale)}
-              className="group flex items-start gap-4 rounded-lg border border-border p-4 text-left hover:border-[var(--proofpoint-orange)]/60 hover:bg-[var(--proofpoint-orange)]/8 transition-all"
-            >
-              <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0 group-hover:bg-[var(--proofpoint-orange)]/15 transition-colors">
-                <SparklesIcon className="size-4 text-muted-foreground group-hover:text-[var(--proofpoint-orange)] transition-colors" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Incorporate my notes</p>
-                  <ArrowRight className="size-4 text-[var(--proofpoint-orange)] opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Pass my edits to the AI as reviewer context
-                </p>
-              </div>
-            </button>
-          </div>
-          <div className="flex justify-end pt-1">
-            <Button
-              variant="ghost"
-              onClick={() => setShowRegenerateDialog(false)}
-              className="text-muted-foreground hover:text-foreground text-sm"
-            >
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+	      {/* ── Regenerate thesis dialog ───────────────────────────────────── */}
+	      <Dialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+	        <DialogContent showCloseButton={false} className="max-w-md">
+	          <DialogHeader>
+	            <DialogTitle className="font-serif text-xl font-medium">
+	              Regenerate thesis fit
+	            </DialogTitle>
+	            <DialogDescription className="text-base text-muted-foreground">
+	              {hasThesisEdit
+	                ? "Choose whether to use your edited analysis as context. Optional guidance will be included either way."
+	                : "Add optional guidance to focus the regeneration."}
+	            </DialogDescription>
+	          </DialogHeader>
+	          {hasThesisEdit && (
+	            <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer hover:border-[var(--proofpoint-orange)]/50 hover:bg-[var(--proofpoint-orange)]/5 transition-colors">
+	              <input
+	                type="checkbox"
+	                checked={includeThesisEdit}
+	                onChange={(e) => setIncludeThesisEdit(e.target.checked)}
+	                className="mt-1 size-4 rounded border-border accent-[var(--proofpoint-orange)]"
+	              />
+	              <span>
+	                <span className="block text-sm font-semibold text-foreground">
+	                  Incorporate my edited analysis
+	                </span>
+	                <span className="mt-0.5 block text-sm text-muted-foreground">
+	                  Uses your current rationale as reviewer context.
+	                </span>
+	              </span>
+	            </label>
+	          )}
+	          <div className="pt-2 border-t border-border/40">
+	            <label className="text-xs font-medium text-muted-foreground uppercase tracking-[0.08em] block mb-1.5">
+	              Additional guidance
+	              <span className="ml-1 normal-case font-normal text-muted-foreground/60">
+	                (optional)
+	              </span>
+	            </label>
+	            <Textarea
+	              value={thesisGuidance}
+	              onChange={(e) => setThesisGuidance(e.target.value)}
+	              placeholder="e.g. be more critical, focus on competitive landscape, assess founder-market fit in depth..."
+	              rows={2}
+	              className="resize-none text-sm"
+	            />
+	            <p className="mt-1.5 text-xs text-muted-foreground">
+	              Optional instructions for what the AI should focus on.
+	            </p>
+	          </div>
+	          <DialogFooter className="pt-1">
+	            <Button
+	              variant="ghost"
+	              onClick={() => setShowRegenerateDialog(false)}
+	              className="text-muted-foreground hover:text-foreground text-sm"
+	            >
+	              Cancel
+	            </Button>
+	            <Button
+	              onClick={runRegenerate}
+	              className="bg-[var(--proofpoint-orange)] hover:bg-[var(--proofpoint-orange)]/90 text-white border-0"
+	            >
+	              Regenerate
+	            </Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
 
       {/* ── Reviewer Notes ──────────────────────────────────────────────── */}
       <section className="rounded-xl bg-card ring-1 ring-foreground/10 overflow-hidden">

@@ -27,12 +27,21 @@ Rules:
     website,
     rawScrapedText,
     humanEdits,
+    analystGuidance,
   }: {
     name: string;
     website: string | null;
     rawScrapedText: string | null;
     humanEdits?: Record<string, string>;
-  }) => `${humanEdits && Object.keys(humanEdits).length > 0
+    analystGuidance?: string;
+  }) => `${analystGuidance ? `ANALYST DIRECTION:
+The analyst has provided the following guidance for this regeneration:
+"${analystGuidance}"
+Treat this as a hard emphasis instruction. The regenerated profile must make this focus visible in the most relevant fields while still covering all required fields accurately.
+If the source text does not contain evidence for the requested focus, explicitly say so as a diligence gap in signalsExtracted instead of ignoring the guidance.
+Before responding, verify that at least one output field directly addresses this analyst direction.
+
+` : ""}${humanEdits && Object.keys(humanEdits).length > 0
     ? `REVIEWER CORRECTIONS:
 A human analyst has reviewed this company and made the following corrections.
 These reflect ground-truth knowledge and MUST be preserved in your output.
@@ -51,13 +60,20 @@ Extract the structured profile.`,
 };
 
 export const THESIS_FIT_PROMPT = {
-  version: "v2",
+  version: "v3",
   system: `You are a senior partner at Proofpoint Capital evaluating a sourced company against the firm's investment thesis. Your output drives whether an analyst spends time on this deal next, so be calibrated and conservative — distinguish genuine fits from adjacent companies.
 
 Proofpoint's thesis:
 """
 ${PROOFPOINT_THESIS}
 """
+
+MANDATE GATE (apply BEFORE the general scoring rubric):
+- Proofpoint is an early-stage fund. The core entry window is Pre-seed through Series B.
+- If the company is CURRENTLY Series C or later, treat that as outside the core mandate and cap the score at 4.
+- If the profile indicates the company is already operating at clear late-stage scale for a Seed-to-Series B fund (for example: $100M+ total funding, IPO preparation/public-company readiness, or very mature multi-product enterprise scale), cap the score at 4 even if the company is otherwise excellent.
+- A company can be an outstanding business and still be a poor fit for this fund. In that case, score for fund fit, not company quality.
+- If the mandate gate applies, recommendation MUST be PASS and the rationale must state that the company is outside the fund's entry stage despite any strengths.
 
 Scoring rubric (apply STRICTLY — do not inflate scores for promise alone):
 - 9-10: Excellent fit. ALL of: target vertical, strong founder-domain match, defensible technical wedge, AND clear traction (paying customers, multi-million ARR, or named brand-name design partners). Without all four, do NOT score 9+.
@@ -85,6 +101,7 @@ Rationale guidance:
 - Then state what specifically would move the score up or down.
 - 2-4 sentences total.
 - Do NOT use vague phrases like "promising" or "exciting" without naming the supporting signal.
+- If the mandate gate applies, the rationale must explicitly separate "strong company" from "not a fit for this fund right now."
 
 Output strict JSON only, no preamble:
 
@@ -96,10 +113,19 @@ Output strict JSON only, no preamble:
   buildUser: ({
     profileJson,
     humanEditedRationale,
+    analystGuidance,
   }: {
     profileJson: string;
     humanEditedRationale?: string;
-  }) => `${humanEditedRationale ? `CRITICAL REVIEWER OVERRIDE:
+    analystGuidance?: string;
+  }) => `${analystGuidance ? `ANALYST DIRECTION:
+The analyst has requested the following focus for this thesis assessment:
+"${analystGuidance}"
+Treat this as a hard emphasis instruction. The rationale must directly address this requested focus while still following the scoring rubric and recommendation mapping exactly.
+If the profile lacks evidence for the requested focus, state that absence as a diligence gap and explain how it affects the score.
+Before responding, verify that the rationale explicitly reflects this analyst direction.
+
+` : ""}${humanEditedRationale ? `CRITICAL REVIEWER OVERRIDE:
 A human analyst with direct knowledge of this company has provided the following assessment:
 "${humanEditedRationale}"
 
@@ -118,14 +144,97 @@ ${profileJson}
 Produce the thesis fit assessment.`,
 };
 
-export const AGENT_PLANNER_PROMPT = {
+export const COMPANY_ANALYSIS_PROMPT = {
   version: "v2",
+  system: `You are a senior investment analyst at Proofpoint Capital, a venture firm investing in early-stage Vertical AI companies in healthcare, life sciences, and financial services.
+
+Your job: given raw public information about a company, produce BOTH:
+1. a structured company profile
+2. a thesis fit assessment against Proofpoint's investment thesis
+
+Proofpoint's thesis:
+"""
+${PROOFPOINT_THESIS}
+"""
+
+MANDATE GATE (apply BEFORE the general scoring rubric):
+- Proofpoint is an early-stage fund. The core entry window is Pre-seed through Series B.
+- If the company is CURRENTLY Series C or later, treat that as outside the core mandate and cap the score at 4.
+- If the company is clearly late-stage in scale for a Seed-to-Series B fund (for example: $100M+ total funding, IPO preparation/public-company readiness, or very mature multi-product enterprise scale), cap the score at 4 even if the company is otherwise excellent.
+- Score for fund fit, not company quality.
+- If the mandate gate applies, recommendation MUST be PASS and the rationale must say the company is outside the fund's entry stage despite its strengths.
+
+You always respond with valid JSON matching this exact schema, no preamble, no markdown:
+
+{
+  "profile": {
+    "description": "1-2 sentence high-level description of what the company does",
+    "productSummary": "2-3 sentences on the specific product and how it works technically",
+    "targetCustomer": "1-2 sentences on the specific buyer persona — role and company type",
+    "verticalTags": ["3-5 tags. The FIRST tag must be exactly one of: Healthcare, Life Sciences, Fintech. Subsequent tags should be workflow-specific."],
+    "signalsExtracted": ["4-6 specific factual signals extracted from the source — funding, founders, customers, traction, technical wedge"],
+    "stage": "<one of: Pre-seed, Seed, Series A, Series B, Series C, Series D, Series E, Series F, Stealth, or null if not explicit>"
+  },
+  "thesisFit": {
+    "score": <number 1-10, decimals allowed>,
+    "recommendation": "<exactly one of: PRIORITY_FOLLOW_UP, REVIEWING, PASS — must match score band>",
+    "rationale": "2-4 sentences referencing specific signals from the profile"
+  }
+}
+
+Profile rules:
+- Be specific. "AI for healthcare" is bad; "Clinical trial document extraction for biotech sponsors" is good.
+- If a signal isn't in the source, do not invent it. Better to have 4 real signals than 6 fabricated ones.
+- Vertical tags must be workflow-specific after the first high-level tag. Good: "Prior Authorization AI", "Clinical Documentation", "Insurance Underwriting", "Drug Discovery", "Revenue Cycle Management". Bad: "AI", "Technology", "Software".
+- For stage: extract the CURRENT funding stage only when explicitly stated. Do not guess based on funding amount alone. If unclear or absent, return null.
+
+Scoring rubric (apply STRICTLY — do not inflate scores for promise alone):
+- 9-10: Excellent fit. ALL of: target vertical, strong founder-domain match, defensible technical wedge, AND clear traction (paying customers, multi-million ARR, or named brand-name design partners). Without all four, do NOT score 9+.
+- 7-8: Strong fit with one significant gap. Worth an analyst first call.
+- 5-6: Adjacent fit. In our sectors but missing two or more key signals.
+- 3-4: Weak fit. Wrong vertical, wrong stage, undifferentiated product, or generic AI wrapper.
+- 1-2: Not a fit.
+
+Score-to-recommendation mapping (MUST follow exactly):
+- 8-10 → "PRIORITY_FOLLOW_UP"
+- 5-7 → "REVIEWING"
+- 1-4 → "PASS"
+
+Horizontal product penalty:
+If the product is a horizontal tool that merely sells into a vertical rather than solving a vertical-specific workflow, reduce the score by 3 points minimum and cap recommendation at REVIEWING.
+
+Rationale guidance:
+- Cite 2-3 specific signals from the profile by name.
+- State what would move the score up or down.
+- Do not use vague phrases like "promising" or "exciting" without naming supporting evidence.
+- If the mandate gate applies, explicitly distinguish strong company quality from weak fit for this fund right now.`,
+  buildUser: ({
+    name,
+    website,
+    rawScrapedText,
+  }: {
+    name: string;
+    website: string | null;
+    rawScrapedText: string | null;
+  }) => `Company name: ${name}
+Website: ${website ?? "(unknown)"}
+
+Source text:
+"""
+${rawScrapedText ?? "(no source text provided — generate based on company name only and note this in signals)"}
+"""
+
+Produce the combined company profile and thesis fit assessment.`,
+};
+
+export const AGENT_PLANNER_PROMPT = {
+  version: "v3",
   system: `You are a venture capital sourcing agent for Proofpoint Capital, an early-stage Vertical AI fund focused on healthcare, life sciences, and fintech.
 
 Your goal is to find qualified Vertical AI companies matching the fund's thesis by generating targeted web search queries.
 
 You will be given:
-- HARD CONSTRAINTS extracted from the user's query — verticals and stages you MUST respect
+- HARD CONSTRAINTS extracted from the user's query — verticals, stages, geographies, and focus terms you MUST respect
 - How many companies you still need to find
 - What companies you have already found (name, vertical, stage)
 - What queries you have already tried
@@ -146,11 +255,15 @@ BAD queries (find market content, not companies):
 HARD CONSTRAINT RULES (non-negotiable — ALWAYS follow these):
 - If REQUIRED VERTICALS are listed: EVERY query must target one of those verticals. Never search a different vertical.
 - If REQUIRED STAGES are listed: EVERY query must include a stage qualifier matching one of those stages. Never search a different stage.
+- If REQUIRED GEOGRAPHIES are listed: EVERY query must preserve one of those geography qualifiers.
+- If REQUIRED FOCUS TERMS are listed: EVERY query should preserve the user's specific workflow, technology, or traction focus where possible. Do not broaden away from the requested focus.
 - If no constraints are listed: vary the vertical each iteration across healthcare, fintech, and life sciences.
 
 Other rules:
 - Never repeat a query you have already tried
 - Keep queries short and announcement-flavored (raised, launched, funding, announces)
+- If REPEAT MODE is on, do not replay the user's exact query. Preserve the hard constraints, but vary the wording, funding verb, workflow phrasing, or adjacent sub-vertical so the search can surface new names.
+- If RECOVERY MODE is on because no new companies were created yet, broaden carefully while respecting the hard constraints. Prefer widening phrasing and adjacent workflow wording before giving up.
 - If you already have enough companies (remaining = 0), set done: true
 - If you have tried 5+ queries with diminishing returns, set done: true
 
@@ -167,18 +280,33 @@ Respond in strict JSON only:
     triedQueries,
     userQuery,
     constraints,
+    repeatMode,
+    recoveryMode,
   }: {
     remaining: number;
     found: { name: string; vertical: string | null; stage: string | null }[];
     triedQueries: string[];
     userQuery: string;
-    constraints: { verticals: string[]; stages: string[]; timeLabel: string };
+    constraints: {
+      verticals: string[];
+      stages: string[];
+      geographies: string[];
+      focusTerms: string[];
+      timeLabel: string;
+    };
+    repeatMode?: boolean;
+    recoveryMode?: boolean;
   }) => `
 USER'S ORIGINAL INTENT: "${userQuery}"
+
+REPEAT MODE: ${repeatMode ? "on — the same query was run recently, so prioritize novelty" : "off"}
+RECOVERY MODE: ${recoveryMode ? "on — no new companies were created yet, so broaden carefully" : "off"}
 
 HARD CONSTRAINTS (you MUST respect these in every query):
 ${constraints.verticals.length > 0 ? `REQUIRED VERTICALS: ${constraints.verticals.join(", ")}` : "REQUIRED VERTICALS: none (search across healthcare, fintech, life sciences)"}
 ${constraints.stages.length > 0 ? `REQUIRED STAGES: ${constraints.stages.join(", ")}` : "REQUIRED STAGES: none (any stage)"}
+${constraints.geographies.length > 0 ? `REQUIRED GEOGRAPHIES: ${constraints.geographies.join(", ")}` : "REQUIRED GEOGRAPHIES: none"}
+${constraints.focusTerms.length > 0 ? `REQUIRED FOCUS TERMS: ${constraints.focusTerms.join(", ")}` : "REQUIRED FOCUS TERMS: none"}
 TIME WINDOW: ${constraints.timeLabel}
 
 COMPANIES FOUND SO FAR (${found.length}):
@@ -244,7 +372,12 @@ Output strict JSON only:
     title: string;
     url: string;
     content: string;
-    constraints?: { verticals: string[]; stages: string[] };
+    constraints?: {
+      verticals: string[];
+      stages: string[];
+      geographies: string[];
+      focusTerms: string[];
+    };
   }) => {
     const constraintLines: string[] = [];
     if (constraints?.verticals && constraints.verticals.length > 0) {
@@ -252,6 +385,12 @@ Output strict JSON only:
     }
     if (constraints?.stages && constraints.stages.length > 0) {
       constraintLines.push(`REQUIRED STAGES: ${constraints.stages.join(", ")} — reject if the company's funding stage does not match.`);
+    }
+    if (constraints?.geographies && constraints.geographies.length > 0) {
+      constraintLines.push(`REQUIRED GEOGRAPHIES: ${constraints.geographies.join(", ")} — reject if the company is clearly headquartered or primarily operating outside this geography. If geography is unknown from the snippet, do not reject solely for missing location; mention the uncertainty in the reason if otherwise relevant.`);
+    }
+    if (constraints?.focusTerms && constraints.focusTerms.length > 0) {
+      constraintLines.push(`REQUIRED FOCUS TERMS: ${constraints.focusTerms.join(", ")} — reject if the company clearly does not match the requested workflow, technology, or traction focus.`);
     }
     return `Search result:
 Title: ${title}

@@ -10,8 +10,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
-  const humanEdits: Record<string, string> | undefined = body?.humanEdits ?? undefined;
+  const rawBody = await req.json().catch(() => ({}));
+  const body =
+    rawBody && typeof rawBody === "object"
+      ? (rawBody as Record<string, unknown>)
+      : {};
+  const humanEdits =
+    body.humanEdits && typeof body.humanEdits === "object"
+      ? (body.humanEdits as Record<string, string>)
+      : undefined;
+  const analystGuidance =
+    typeof body.analystGuidance === "string"
+      ? body.analystGuidance.trim() || undefined
+      : undefined;
 
   const company = await db.company.findUnique({ where: { id } });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -26,19 +37,20 @@ export async function POST(
       website: company.website,
       rawScrapedText: company.rawScrapedText,
       humanEdits,
+      analystGuidance,
     }),
     profileSchema,
     {
-      buildFallback: () => ({
-        description: "[Generation failed — please retry. Showing fallback response, not a real profile.]",
-        productSummary: "",
-        targetCustomer: "",
-        verticalTags: [],
-        signalsExtracted: [],
-        stage: null,
-      }),
+      buildFallback: () => null,
     }
   );
+
+  if (result.meta.fallback || !result.data) {
+    return NextResponse.json(
+      { error: "Profile generation failed. Existing profile was not changed." },
+      { status: 503 }
+    );
+  }
 
   const llmStage = result.data.stage;
   const fallbackStage = detectStage(company.rawScrapedText);
@@ -52,6 +64,7 @@ export async function POST(
       generatedAt: new Date().toISOString(),
       promptVersion: PROFILE_PROMPT.version,
       fallback: result.meta.fallback,
+      ...(analystGuidance ? { analystGuidance } : {}),
     },
   };
 

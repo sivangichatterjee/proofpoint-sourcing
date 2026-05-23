@@ -1,6 +1,8 @@
 export type QueryConstraints = {
   verticals: string[];
   stages: string[];
+  geographies: string[];
+  focusTerms: string[];
   days: number;
   timeLabel: string;
 };
@@ -35,6 +37,36 @@ const STAGE_PATTERNS = [
   { keywords: ["stealth"], canonical: "Stealth" },
 ];
 
+const GEOGRAPHY_PATTERNS = [
+  { patterns: [/\busa\b/i, /\bu\.s\.a\.?\b/i, /\bu\.s\.?\b/i, /\bunited states\b/i, /\bamerica(?:n)?\b/i], canonical: "United States" },
+  { patterns: [/\buk\b/i, /\bu\.k\.?\b/i, /\bunited kingdom\b/i, /\bbritain\b/i, /\bbritish\b/i], canonical: "United Kingdom" },
+  { patterns: [/\beurope\b/i, /\beuropean\b/i, /\beu\b/i], canonical: "Europe" },
+  { patterns: [/\bindia\b/i, /\bindian\b/i], canonical: "India" },
+  { patterns: [/\bisrael\b/i, /\bisraeli\b/i], canonical: "Israel" },
+  { patterns: [/\bcanada\b/i, /\bcanadian\b/i], canonical: "Canada" },
+  { patterns: [/\blatam\b/i, /\blatin america\b/i], canonical: "Latin America" },
+];
+
+const FOCUS_TERM_PATTERNS = [
+  { patterns: [/\bclinical\s+nlp\b/i], canonical: "clinical NLP" },
+  { patterns: [/\bclinical\s+documentation\b/i, /\bmedical\s+scribe\b/i, /\bai\s+scribe\b/i], canonical: "clinical documentation" },
+  { patterns: [/\bprior\s+authorization\b/i, /\bprior\s+auth\b/i], canonical: "prior authorization" },
+  { patterns: [/\brevenue\s+cycle\b/i], canonical: "revenue cycle" },
+  { patterns: [/\binsurance\s+underwriting\b/i, /\bunderwriting\b/i], canonical: "insurance underwriting" },
+  { patterns: [/\bclaims?\s+(processing|adjudication|auditing|automation)\b/i], canonical: "claims processing" },
+  { patterns: [/\bfraud\s+detection\b/i], canonical: "fraud detection" },
+  { patterns: [/\bregulatory\s+compliance\b/i, /\bcompliance\b/i], canonical: "regulatory compliance" },
+  { patterns: [/\bdrug\s+discovery\b/i], canonical: "drug discovery" },
+  { patterns: [/\bclinical\s+trials?\b/i], canonical: "clinical trials" },
+  { patterns: [/\bgenomics?\b/i], canonical: "genomics" },
+  { patterns: [/\bmedical\s+imaging\b/i, /\bradiology\b/i], canonical: "medical imaging" },
+  { patterns: [/\bdesign\s+partners?\b/i], canonical: "design partners" },
+  { patterns: [/\bhospital\s+pilots?\b/i, /\bpilots?\b/i], canonical: "pilots" },
+  { patterns: [/\bpaying\s+customers?\b/i], canonical: "paying customers" },
+  { patterns: [/\bfda[\s-]?cleared\b/i], canonical: "FDA-cleared" },
+  { patterns: [/\bllm\s+agents?\b/i, /\bagentic\b/i], canonical: "LLM agents" },
+];
+
 export function extractConstraints(query: string): QueryConstraints {
   const lower = query.toLowerCase();
 
@@ -49,6 +81,20 @@ export function extractConstraints(query: string): QueryConstraints {
   for (const { keywords, canonical } of STAGE_PATTERNS) {
     if (keywords.some(kw => lower.includes(kw)) && !stages.includes(canonical)) {
       stages.push(canonical);
+    }
+  }
+
+  const geographies: string[] = [];
+  for (const { patterns, canonical } of GEOGRAPHY_PATTERNS) {
+    if (patterns.some(pattern => pattern.test(query)) && !geographies.includes(canonical)) {
+      geographies.push(canonical);
+    }
+  }
+
+  const focusTerms: string[] = [];
+  for (const { patterns, canonical } of FOCUS_TERM_PATTERNS) {
+    if (patterns.some(pattern => pattern.test(query)) && !focusTerms.includes(canonical)) {
+      focusTerms.push(canonical);
     }
   }
 
@@ -76,7 +122,7 @@ export function extractConstraints(query: string): QueryConstraints {
     timeLabel = "recent (last 3 months)";
   }
 
-  return { verticals, stages, days, timeLabel };
+  return { verticals, stages, geographies, focusTerms, days, timeLabel };
 }
 
 export function stripConstraintNoise(query: string): string {

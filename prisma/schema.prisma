@@ -9,6 +9,7 @@ datasource db {
 model Company {
   id              String   @id @default(cuid())
   name            String
+  normalizedName  String?  @unique
   website         String?
   oneLiner        String?
   vertical        String?

@@ -50,6 +50,7 @@ export const CompanyProfileSchema = z.object({
     generatedAt: z.string(),
     promptVersion: z.string(),
     fallback: z.boolean().default(false),
+    analystGuidance: z.string().optional(),
   }),
 });
 export type CompanyProfile = z.infer<typeof CompanyProfileSchema>;
@@ -63,9 +64,16 @@ export const ThesisFitSchema = z.object({
     generatedAt: z.string(),
     promptVersion: z.string(),
     fallback: z.boolean().default(false),
+    analystGuidance: z.string().optional(),
   }),
 });
 export type ThesisFit = z.infer<typeof ThesisFitSchema>;
+
+export const CompanyAnalysisSchema = z.object({
+  profile: CompanyProfileSchema.omit({ _meta: true }),
+  thesisFit: ThesisFitSchema.omit({ _meta: true }),
+});
+export type CompanyAnalysis = z.infer<typeof CompanyAnalysisSchema>;
 
 export const RelevanceFilterSchema = z.object({
   relevant: z.boolean(),

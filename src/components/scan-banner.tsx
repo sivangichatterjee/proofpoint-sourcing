@@ -76,10 +76,10 @@ export function ScanBanner() {
         )}
         <span>
           {scanBanner.error
-            ? "Background scan failed — please try again"
+            ? "Background scan hit an error — please try again"
             : scanBanner.found === 0
-              ? `Scan complete — no new companies matched${scanBanner.query ? ` "${scanBanner.query}"` : ""}. Try a broader query.`
-              : `Scan complete — ${scanBanner.found} new ${scanBanner.found === 1 ? "company" : "companies"} added to your queue`
+              ? `Background scan finished — no new companies matched${scanBanner.query ? ` "${scanBanner.query}"` : ""}. Try a broader query.`
+              : `Queue updated — ${scanBanner.found} new ${scanBanner.found === 1 ? "company is" : "companies are"} ready for review`
           }
         </span>
       </div>

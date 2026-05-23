@@ -3,11 +3,12 @@ import { db } from "@/lib/db";
 import { QueueTable } from "@/components/queue-table";
 import { RunScanButton } from "@/components/run-scan-button";
 import { ScanBanner } from "@/components/scan-banner";
+import { normalizeCompanyName } from "@/lib/companyDedupe";
 
 export const dynamic = "force-dynamic";
 
 export default async function QueuePage() {
-  const [companies, lastScan] = await Promise.all([
+  const [allCompanies, lastScan] = await Promise.all([
     db.company.findMany({
       orderBy: { createdAt: "desc" },
       select: {
@@ -25,6 +26,16 @@ export default async function QueuePage() {
     }),
     db.scanRun.findFirst({ orderBy: { createdAt: "desc" } }),
   ]);
+  const uniqueCompaniesByName = new Map<string, (typeof allCompanies)[number]>();
+  for (const company of [...allCompanies].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
+    const key = normalizeCompanyName(company.name);
+    if (!key || !uniqueCompaniesByName.has(key)) {
+      uniqueCompaniesByName.set(key || company.id, company);
+    }
+  }
+  const companies = [...uniqueCompaniesByName.values()].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 
   const scanMode = process.env.SCAN_MODE ?? "mock";
 

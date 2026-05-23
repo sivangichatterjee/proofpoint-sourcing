@@ -9,8 +9,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
-  const humanEditedRationale: string | undefined = body?.humanEditedRationale ?? undefined;
+  const rawBody = await req.json().catch(() => ({}));
+  const body =
+    rawBody && typeof rawBody === "object"
+      ? (rawBody as Record<string, unknown>)
+      : {};
+  const humanEditedRationale =
+    typeof body.humanEditedRationale === "string"
+      ? body.humanEditedRationale.trim() || undefined
+      : undefined;
+  const analystGuidance =
+    typeof body.analystGuidance === "string"
+      ? body.analystGuidance.trim() || undefined
+      : undefined;
 
   const company = await db.company.findUnique({ where: { id } });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -33,17 +44,24 @@ export async function POST(
   const result = await callLLM(
     "thesis_fit",
     THESIS_FIT_PROMPT.system,
-    THESIS_FIT_PROMPT.buildUser({ profileJson: JSON.stringify(profileForPrompt, null, 2), humanEditedRationale }),
+    THESIS_FIT_PROMPT.buildUser({
+      profileJson: JSON.stringify(profileForPrompt, null, 2),
+      humanEditedRationale,
+      analystGuidance,
+    }),
     thesisFitSchema,
     {
-      buildFallback: () => ({
-  score: 0,
-  recommendation: "REVIEWING" as const,
-  rationale: "[Generation failed — please retry. This is a fallback response, not a real thesis assessment.]",
-}),
+      buildFallback: () => null,
       temperature: 0,
     }
   );
+
+  if (result.meta.fallback || !result.data) {
+    return NextResponse.json(
+      { error: "Thesis generation failed. Existing thesis fit was not changed." },
+      { status: 503 }
+    );
+  }
 
   const thesisFit = {
     ...result.data,
@@ -52,6 +70,7 @@ export async function POST(
       generatedAt: new Date().toISOString(),
       promptVersion: THESIS_FIT_PROMPT.version,
       fallback: result.meta.fallback,
+      ...(analystGuidance ? { analystGuidance } : {}),
     },
   };
 

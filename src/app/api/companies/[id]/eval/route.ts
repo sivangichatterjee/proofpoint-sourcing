@@ -5,7 +5,6 @@ import { THESIS_FIT_PROMPT } from "@/lib/prompts";
 import { ThesisFitSchema } from "@/lib/types";
 
 const EVAL_MODELS = [
-  { id: "deepseek-ai/DeepSeek-V4-Pro", label: "DeepSeek V4 Pro" },
   { id: "gpt-4o-mini", label: "GPT-4o Mini" },
 ];
 
@@ -21,8 +20,16 @@ export async function POST(
     return Response.json({ error: "No profile found" }, { status: 400 });
   }
 
-  const profile = JSON.parse(company.profile);
-  const profileJson = JSON.stringify(profile, null, 2);
+  let profileForPrompt: Record<string, unknown>;
+  try {
+    const { _meta, ...rest } = JSON.parse(company.profile) as Record<string, unknown>;
+    void _meta;
+    profileForPrompt = rest;
+  } catch {
+    return Response.json({ error: "Invalid profile data" }, { status: 400 });
+  }
+
+  const profileJson = JSON.stringify(profileForPrompt, null, 2);
 
   const thesisFitSchema = ThesisFitSchema.omit({ _meta: true });
 
@@ -36,13 +43,22 @@ export async function POST(
         {
           temperature: 0,
           modelOverride: modelId,
-          buildFallback: () => ({
-            score: 0,
-            recommendation: "REVIEWING" as const,
-            rationale: "[Generation failed — model unavailable]",
-          }),
+          allowModelFallback: false,
+          buildFallback: () => null,
         }
       );
+
+      if (result.meta.fallback || !result.data) {
+        return {
+          model: modelId,
+          modelLabel: label,
+          score: null,
+          recommendation: null,
+          rationale: "This model was unavailable or returned an invalid response.",
+          fallback: true,
+        };
+      }
+
       return {
         model: modelId,
         modelLabel: label,
@@ -60,9 +76,9 @@ export async function POST(
       : {
           model: EVAL_MODELS[i].id,
           modelLabel: EVAL_MODELS[i].label,
-          score: 0,
-          recommendation: "REVIEWING",
-          rationale: "[Failed to generate]",
+          score: null,
+          recommendation: null,
+          rationale: "This model was unavailable or returned an invalid response.",
           fallback: true,
         }
   );

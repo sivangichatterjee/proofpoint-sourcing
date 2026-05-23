@@ -2,7 +2,18 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 function makePrisma() {
-  const adapter = new PrismaLibSql({ url: process.env.DATABASE_URL! });
+  const url = process.env.TURSO_DATABASE_URL ?? process.env.DATABASE_URL;
+  const authToken =
+    process.env.TURSO_AUTH_TOKEN ?? process.env.LIBSQL_DATABASE_TOKEN;
+
+  if (!url) {
+    throw new Error("Missing database URL. Set TURSO_DATABASE_URL or DATABASE_URL.");
+  }
+
+  const adapter = new PrismaLibSql({
+    url,
+    ...(authToken ? { authToken } : {}),
+  });
   return new PrismaClient({ adapter });
 }
 

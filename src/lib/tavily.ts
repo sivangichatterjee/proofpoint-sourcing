@@ -8,11 +8,15 @@ export interface TavilyResult {
 
 const client = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
-export async function tavilySearch(query: string, days: number = 180): Promise<TavilyResult[]> {
+export async function tavilySearch(
+  query: string,
+  days: number = 180,
+  maxResults: number = 8
+): Promise<TavilyResult[]> {
   try {
     const cleanQuery = query.replace(/\s+/g, " ").trim();
     const response = await client.search(cleanQuery, {
-      maxResults: 8,
+      maxResults,
       searchDepth: "basic",
       includeAnswer: false,
       topic: "news",
