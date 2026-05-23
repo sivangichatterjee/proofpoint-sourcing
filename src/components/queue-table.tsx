@@ -304,22 +304,55 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
   ) => {
     setColWidths((prev) => {
       const next = { ...prev };
-      const otherWidth = Object.entries(prev)
-        .filter(([col]) => col !== key)
-        .reduce((sum, [, width]) => sum + width, 0);
+      const total =
+        prev.company + prev.vertical + prev.stage + prev.status + prev.score;
+      const slack = tableWidth ? Math.max(0, tableWidth - total) : 0;
 
-      const maxWidth = tableWidth
-        ? Math.max(minWidth, tableWidth - otherWidth)
-        : Number.POSITIVE_INFINITY;
+      if (key === "company") {
+        const maxWidth = tableWidth
+          ? Math.max(
+              minWidth,
+              tableWidth - (prev.vertical + prev.stage + prev.status + prev.score)
+            )
+          : Number.POSITIVE_INFINITY;
 
-      next[key] = Math.min(
-        maxWidth,
-        Math.max(minWidth, prev[key] + delta)
-      );
+        next.company = Math.min(
+          maxWidth,
+          Math.max(minWidth, prev.company + delta)
+        );
+        return next;
+      }
+
+      if (delta >= 0) {
+        const companyRoom = Math.max(
+          0,
+          prev.company - MIN_COL_WIDTHS.company
+        );
+        const allowedGrowth = slack + companyRoom;
+        const effectiveDelta = Math.min(delta, allowedGrowth);
+        const growthFromSlack = Math.min(slack, effectiveDelta);
+        const growthFromCompany = effectiveDelta - growthFromSlack;
+
+        next[key] = Math.max(minWidth, prev[key] + effectiveDelta);
+        next.company = Math.max(
+          MIN_COL_WIDTHS.company,
+          prev.company - growthFromCompany
+        );
+        return next;
+      }
+
+      next[key] = Math.max(minWidth, prev[key] + delta);
 
       return next;
     });
   };
+
+  const totalColWidth =
+    colWidths.company +
+    colWidths.vertical +
+    colWidths.stage +
+    colWidths.status +
+    colWidths.score;
 
   // ── Filter option lists (derived from live data) ────────────────────────────
   const allVerticals = useMemo(() => {
@@ -462,7 +495,10 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────────── */}
-      <Table className="table-fixed w-full">
+      <Table
+        className="table-fixed"
+        style={{ width: tableWidth ? Math.max(tableWidth, totalColWidth) : "100%" }}
+      >
         <TableHeader>
           <TableRow>
             {/* Company */}
