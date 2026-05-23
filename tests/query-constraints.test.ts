@@ -10,6 +10,7 @@ test("extractConstraints captures vertical, stage, geography, focus term, and ti
 
   assert.deepEqual(constraints.verticals, ["healthcare"]);
   assert.deepEqual(constraints.stages, ["Series A"]);
+  assert.deepEqual(constraints.stageLabels, ["Series A"]);
   assert.deepEqual(constraints.geographies, ["United States"]);
   assert.deepEqual(constraints.focusTerms, ["clinical NLP"]);
   assert.equal(constraints.days, 180);
@@ -20,10 +21,27 @@ test("extractConstraints maps fintech geography and recent phrasing", () => {
   const constraints = extractConstraints("recent AI underwriting startup in the UK");
 
   assert.deepEqual(constraints.verticals, ["fintech"]);
+  assert.deepEqual(constraints.stageLabels, []);
   assert.deepEqual(constraints.geographies, ["United Kingdom"]);
   assert.deepEqual(constraints.focusTerms, ["insurance underwriting"]);
   assert.equal(constraints.days, 90);
   assert.equal(constraints.timeLabel, "recent (last 3 months)");
+});
+
+test("extractConstraints expands early stage into explicit enforceable stages", () => {
+  const constraints = extractConstraints("early stage ai fintech startups");
+
+  assert.deepEqual(constraints.verticals, ["fintech"]);
+  assert.deepEqual(constraints.stageLabels, ["early stage"]);
+  assert.deepEqual(constraints.stages, ["Pre-seed", "Seed", "Series A", "Series B"]);
+});
+
+test("extractConstraints does not double-count pre-seed as seed", () => {
+  const constraints = extractConstraints("AI healthcare pre-seed startup");
+
+  assert.deepEqual(constraints.verticals, ["healthcare"]);
+  assert.deepEqual(constraints.stageLabels, ["Pre-seed"]);
+  assert.deepEqual(constraints.stages, ["Pre-seed"]);
 });
 
 test("stripConstraintNoise removes dates and recency noise but keeps the search topic", () => {

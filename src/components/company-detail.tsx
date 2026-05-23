@@ -31,6 +31,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { NEXT_STEP_OPTIONS, normalizeSignals } from "@/lib/types";
 import type { CompanyStatus, CompanyProfile, ThesisFit, SignalItem } from "@/lib/types";
+import { normalizeStageValue } from "@/lib/stage";
 
 const ALL_STATUSES: CompanyStatus[] = [
   "NEW",
@@ -73,6 +74,10 @@ const MODEL_LABELS: Record<string, string> = {
 function displayModel(model: string | null | undefined): string {
   if (!model) return "current model";
   return MODEL_LABELS[model] ?? model;
+}
+
+function displayStage(value: string | null | undefined): string {
+  return normalizeStageValue(value) ?? "—";
 }
 
 type SerializedNote = {
@@ -1168,7 +1173,7 @@ export function CompanyDetail({
           <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
             Stage
           </p>
-          <p className="text-lg text-foreground">{stage ?? "—"}</p>
+          <p className="text-lg text-foreground">{displayStage(stage)}</p>
         </div>
       </div>
 

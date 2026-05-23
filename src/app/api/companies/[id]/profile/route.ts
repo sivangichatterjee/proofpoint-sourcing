@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { callLLM } from "@/lib/llm";
 import { PROFILE_PROMPT } from "@/lib/prompts";
 import { CompanyProfileSchema, normalizeSignals } from "@/lib/types";
-import { detectStage } from "@/lib/stage";
+import { detectStage, normalizeStageValue } from "@/lib/stage";
 
 export async function POST(
   req: NextRequest,
@@ -52,7 +52,7 @@ export async function POST(
     );
   }
 
-  const llmStage = result.data.stage;
+  const llmStage = normalizeStageValue(result.data.stage);
   const fallbackStage = detectStage(company.rawScrapedText);
   const finalStage = llmStage ?? fallbackStage ?? null;
 

@@ -1,6 +1,7 @@
 export type QueryConstraints = {
   verticals: string[];
   stages: string[];
+  stageLabels: string[];
   geographies: string[];
   focusTerms: string[];
   days: number;
@@ -29,13 +30,42 @@ const VERTICAL_PATTERNS = [
 ];
 
 const STAGE_PATTERNS = [
-  { keywords: ["pre-seed", "preseed"], canonical: "Pre-seed" },
-  { keywords: ["seed"], canonical: "Seed" },
-  { keywords: ["series a"], canonical: "Series A" },
-  { keywords: ["series b"], canonical: "Series B" },
-  { keywords: ["series c"], canonical: "Series C" },
-  { keywords: ["stealth"], canonical: "Stealth" },
-];
+  {
+    patterns: [/\bearly[\s-]?stage\b/i, /\bearlier[\s-]?stage\b/i],
+    canonicals: ["Pre-seed", "Seed", "Series A", "Series B"],
+    label: "early stage",
+  },
+  {
+    patterns: [/\bpre[\s-]?seed\b/i],
+    canonicals: ["Pre-seed"],
+    label: "Pre-seed",
+  },
+  {
+    patterns: [/(?<!pre[\s-])\bseed\b/i],
+    canonicals: ["Seed"],
+    label: "Seed",
+  },
+  {
+    patterns: [/\bseries\s+a\b/i],
+    canonicals: ["Series A"],
+    label: "Series A",
+  },
+  {
+    patterns: [/\bseries\s+b\b/i],
+    canonicals: ["Series B"],
+    label: "Series B",
+  },
+  {
+    patterns: [/\bseries\s+c\b/i],
+    canonicals: ["Series C"],
+    label: "Series C",
+  },
+  {
+    patterns: [/\bstealth\b/i],
+    canonicals: ["Stealth"],
+    label: "Stealth",
+  },
+] as const;
 
 const GEOGRAPHY_PATTERNS = [
   { patterns: [/\busa\b/i, /\bu\.s\.a\.?\b/i, /\bu\.s\.?\b/i, /\bunited states\b/i, /\bamerica(?:n)?\b/i], canonical: "United States" },
@@ -78,9 +108,18 @@ export function extractConstraints(query: string): QueryConstraints {
   }
 
   const stages: string[] = [];
-  for (const { keywords, canonical } of STAGE_PATTERNS) {
-    if (keywords.some(kw => lower.includes(kw)) && !stages.includes(canonical)) {
-      stages.push(canonical);
+  const stageLabels: string[] = [];
+  for (const { patterns, canonicals, label } of STAGE_PATTERNS) {
+    if (!patterns.some((pattern) => pattern.test(query))) continue;
+
+    if (!stageLabels.includes(label)) {
+      stageLabels.push(label);
+    }
+
+    for (const canonical of canonicals) {
+      if (!stages.includes(canonical)) {
+        stages.push(canonical);
+      }
     }
   }
 
@@ -122,7 +161,7 @@ export function extractConstraints(query: string): QueryConstraints {
     timeLabel = "recent (last 3 months)";
   }
 
-  return { verticals, stages, geographies, focusTerms, days, timeLabel };
+  return { verticals, stages, stageLabels, geographies, focusTerms, days, timeLabel };
 }
 
 export function stripConstraintNoise(query: string): string {

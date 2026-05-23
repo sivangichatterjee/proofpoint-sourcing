@@ -31,6 +31,7 @@ type LogEntry =
       type: "constraints";
       verticals: string[];
       stages: string[];
+      stageLabels?: string[];
       geographies?: string[];
       focusTerms?: string[];
       timeLabel: string;
@@ -430,7 +431,7 @@ export function RunScanButton() {
               if (entry.type === "constraints") {
                 const pills: string[] = [
                   ...entry.verticals,
-                  ...entry.stages,
+                  ...(entry.stageLabels ?? entry.stages),
                   ...(entry.geographies ?? []),
                   ...(entry.focusTerms ?? []),
                   entry.timeLabel,
@@ -460,25 +461,26 @@ export function RunScanButton() {
                 );
 
               if (entry.type === "found")
-                return (
-                  <div key={i} className="flex items-center justify-between gap-4 pl-6">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
-                      <span className="font-semibold text-foreground text-sm">{entry.company}</span>
-                      {entry.vertical && (
-                        <span className="text-xs text-muted-foreground">{entry.vertical}</span>
-                      )}
-                      {entry.stage && (
-                        <span className="text-xs text-muted-foreground">· {entry.stage}</span>
+                return (() => {
+                  const displayVertical = entry.vertical ?? "-";
+                  const displayStage = entry.stage ?? "-";
+
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-4 pl-6">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
+                        <span className="font-semibold text-foreground text-sm">{entry.company}</span>
+                        <span className="text-xs text-muted-foreground">{displayVertical}</span>
+                        <span className="text-xs text-muted-foreground">· {displayStage}</span>
+                      </div>
+                      {entry.score != null && (
+                        <span className="text-sm font-semibold tabular-nums shrink-0">
+                          {entry.score}<span className="text-xs font-normal text-muted-foreground">/10</span>
+                        </span>
                       )}
                     </div>
-                    {entry.score != null && (
-                      <span className="text-sm font-semibold tabular-nums shrink-0">
-                        {entry.score}<span className="text-xs font-normal text-muted-foreground">/10</span>
-                      </span>
-                    )}
-                  </div>
-                );
+                  );
+                })();
 
               if (entry.type === "complete")
                 return (

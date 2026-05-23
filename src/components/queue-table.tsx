@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status-badge";
 import type { CompanyStatus } from "@/lib/types";
+import { normalizeStageValue } from "@/lib/stage";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -207,6 +208,10 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
 function display(value: string | null | undefined): string {
   if (!value || value === "null" || value === "undefined") return "—";
   return value;
+}
+
+function displayStage(value: string | null | undefined): string {
+  return normalizeStageValue(value) ?? "—";
 }
 
 export function QueueTable({ companies }: { companies: CompanyRow[] }) {
@@ -623,7 +628,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
                     <span className="block truncate text-lg text-foreground">{display(company.vertical)}</span>
                   </TableCell>
                   <TableCell style={{ width: colWidths.stage }} className="py-6 align-middle overflow-hidden">
-                    <span className="block truncate text-lg text-foreground tabular-nums">{display(company.stage)}</span>
+                    <span className="block truncate text-lg text-foreground tabular-nums">{displayStage(company.stage)}</span>
                   </TableCell>
                   <TableCell style={{ width: colWidths.status }} className="py-6 align-middle min-w-0">
                     <div className={cn(

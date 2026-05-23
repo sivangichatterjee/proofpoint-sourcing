@@ -22,7 +22,7 @@ import {
   normalizeSignals,
 } from "@/lib/types";
 import type { CompanyProfile, SignalItem, ThesisFit } from "@/lib/types";
-import { detectStage } from "@/lib/stage";
+import { detectStage, normalizeStageValue } from "@/lib/stage";
 import { extractConstraints, stripConstraintNoise } from "@/lib/queryConstraints";
 
 function mapToThesisVertical(tags: string[]): string | null {
@@ -165,6 +165,7 @@ export type ScanProgressEvent =
       type: "constraints";
       verticals: string[];
       stages: string[];
+      stageLabels: string[];
       geographies: string[];
       focusTerms: string[];
       timeLabel: string;
@@ -496,7 +497,7 @@ export async function runScan({
         const headlineVertical = mapToThesisVertical(
           analysis.profile.verticalTags ?? []
         );
-        const llmStage = analysis.profile.stage ?? null;
+        const llmStage = normalizeStageValue(analysis.profile.stage);
         const finalStage = llmStage ?? detectStage(result.content) ?? null;
 
         if (!matchesRequestedVertical(headlineVertical, constraints.verticals)) {
@@ -595,6 +596,7 @@ export async function runScan({
     type: "constraints",
     verticals: constraints.verticals,
     stages: constraints.stages,
+    stageLabels: constraints.stageLabels,
     geographies: constraints.geographies,
     focusTerms: constraints.focusTerms,
     timeLabel: constraints.timeLabel,
@@ -798,7 +800,7 @@ export async function runScan({
             const headlineVertical = mapToThesisVertical(
               analysis.profile.verticalTags ?? []
             );
-            const llmStage = analysis.profile.stage ?? null;
+            const llmStage = normalizeStageValue(analysis.profile.stage);
             const finalStage = llmStage ?? detectStage(result.content) ?? null;
 
             if (!matchesRequestedVertical(headlineVertical, constraints.verticals)) {

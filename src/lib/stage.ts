@@ -1,6 +1,4 @@
-export function detectStage(text: string | null): string | null {
-  if (!text) return null;
-  const lower = text.toLowerCase();
+function matchCanonicalStage(lower: string): string | null {
   if (/\bseries\s+f\b/.test(lower)) return "Series F";
   if (/\bseries\s+e\b/.test(lower)) return "Series E";
   if (/\bseries\s+d\b/.test(lower)) return "Series D";
@@ -18,4 +16,14 @@ export function detectStage(text: string | null): string | null {
     }
   }
   return null;
+}
+
+export function normalizeStageValue(stage: string | null | undefined): string | null {
+  if (!stage) return null;
+  return matchCanonicalStage(stage.toLowerCase());
+}
+
+export function detectStage(text: string | null): string | null {
+  if (!text) return null;
+  return matchCanonicalStage(text.toLowerCase());
 }
