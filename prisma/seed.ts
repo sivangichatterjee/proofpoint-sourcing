@@ -52,7 +52,7 @@ const companies = [
       recommendation: "PRIORITY_FOLLOW_UP",
       rationale:
         "Exceptional thesis fit. Sixfold is exactly the kind of Vertical AI company Proofpoint should be tracking: AI-native (not retrofitted), embedded in a regulated workflow (insurance underwriting), demonstrable ROI metrics with named enterprise customers, and a strategic investor (Guidewire) that creates distribution lock-in. The 35% quote time reduction at Skyward and 2-hour-per-submission savings at Zurich are concrete value props. Series B at $30M is later than our typical entry, but the trajectory and the moat justify monitoring for follow-on opportunities or relationship-building.",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v3", fallback: false },
     }),
   },
   {
@@ -89,7 +89,7 @@ const companies = [
       recommendation: "PASS",
       rationale:
         "Aidoc is a clear category leader in clinical imaging AI but is well past Proofpoint's typical early-stage entry point. With $500M+ in total funding, IPO consideration, and 150+ deployed health systems, valuation expectations and growth dynamics are no longer compatible with a Seed-to-Series B fund's economics. We pass on this one but should track the talent diaspora — early Aidoc engineers and clinical leads will spin out future companies that are squarely in our sweet spot.",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v3", fallback: false },
     }),
   },
   {
@@ -98,7 +98,7 @@ const companies = [
     oneLiner: "AI-driven prior authorization platform for health plans and providers",
     vertical: "Healthcare",
     stage: "Series C",
-    status: "REVIEWING",
+    status: "PASS",
     sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/cohere-health-lands-90m-series-c-round-expand-ai-use-cases",
     rawScrapedText:
       "Cohere Health raised $90M Series C in May 2025 led by Temasek. Total funding $200M. Processes 12M+ prior auth requests annually, auto-approves up to 90% of requests. Cohere Health, a Boston-based AI company that uses machine learning to streamline prior authorization decisions, has raised $50M in a Series C debt and equity round led by Deerfield Management. The platform serves major health plans including Humana, processing millions of prior authorization requests annually. Cohere's AI predicts the likelihood of approval based on clinical guidelines, automates routine approvals, and provides real-time decision support to providers at point-of-care. The company was founded in 2019 by Siva Namasivayam (CEO, former CEO of Reflexion Health), Kishore Nimmagadda (CTO), and Brett Rosen (COO). Total funding now exceeds $156M including Series A $20M (2020), Series B $36M (2021), and the recent $50M round. Customers include Humana (multi-million-member contract), several Blue Cross Blue Shield plans, and regional payers.",
@@ -122,48 +122,48 @@ const companies = [
       _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
     }),
     thesisFit: JSON.stringify({
-      score: 7,
-      recommendation: "REVIEWING",
+      score: 4,
+      recommendation: "PASS",
       rationale:
-        "Strong thesis alignment on the product side — prior authorization is one of healthcare's most painful administrative workflows and a real vertical AI opportunity. The team has domain pedigree and the customer base (Humana, multiple Blues plans) demonstrates clear payer adoption. Series C at $200M total funding is at the upper edge of our entry range but the 12M+ annual prior auth requests and 90% auto-approval rate are concrete scale signals that justify a closer look. Worth diligencing for a potential follow-on or evaluating their competitive landscape (Olive, Myndshft) before deciding.",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+        "Cohere Health is a strong company in a real Vertical AI workflow: prior authorization is painful, the product has clear payer adoption, and the platform processes 12M+ requests annually with high auto-approval rates. However, Series C at roughly $200M in total funding places the company outside Proofpoint's core Pre-seed-to-Series B entry window. This looks like a category leader worth tracking for market context, but not a fit for this fund right now.",
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v3", fallback: false },
     }),
   },
   {
-    name: "Hippocratic AI",
-    website: "https://www.hippocraticai.com",
-    oneLiner: "Safety-focused LLM for non-diagnostic healthcare consumer interactions",
+    name: "Keebler Health",
+    website: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform",
+    oneLiner:
+      "Keebler Health develops an AI risk adjustment platform analyzing electronic health records to identify chronic conditions for value-based care models",
     vertical: "Healthcare",
-    stage: "Series C",
+    stage: "Series A",
     status: "PRIORITY_FOLLOW_UP",
-    sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai",
+    sourceUrl: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform",
     rawScrapedText:
-      "Hippocratic AI raised $141M in Series B funding at a $1.64B valuation, led by Kleiner Perkins with participation from Andreessen Horowitz, Premji Invest, General Catalyst, SV Angel, and Memorial Hermann Health System. Total funding now exceeds $278M. The Palo Alto-based company builds a safety-focused large language model designed for non-diagnostic patient-facing healthcare tasks like care coordination, chronic care management calls, post-discharge follow-up, and care navigation. The model has been tested by 5,500+ licensed clinicians for safety. Customers include Memorial Hermann, WellSpan Health, Cincinnati Children's, Hackensack Meridian Health, and 40+ other health system partners. The platform handles thousands of patient calls per day. Co-founded by Munjal Shah (CEO, former CEO of Health IQ), Vivek Natarajan (research lead, former Google Health), Saad Godil, and others. The company explicitly does NOT do diagnosis — only low-risk supportive workflows. Series C $126M (November 2025) at $3.5B valuation led by existing investors. Total funding now $404M.",
+      "# Keebler Health raises $16M for AI risk adjustment platform. Keebler Health, an AI-enabled risk adjustment company, announced it has secured $16 million in Series A funding, bringing its total raise to $23 million. North Carolina-based Keebler Health's platform analyzes electronic health records and other patient data to identify chronic conditions that may be missing or undocumented in existing documentation. The company's tools aim to support value-based care models and help providers with risk adjustment and reimbursement. Last year, Keebler Health raised $6 million in seed funding, bringing its total raise at the time to $7.8 million. Another company in the space is an AI-enabled clinical intelligence platform for primary care providers, Navina, which in March announced the close of a $55 million Series C funding round, bringing its total raise to $100 million. New York-based Navina offers accountable care organizations, providers, management services organizations and health plans AI-enabled tools for risk adjustment, chart review, quality management and analytics to help track and optimize value-based care performance.",
     profile: JSON.stringify({
       description:
-        "Hippocratic AI builds a safety-focused large language model purpose-built for non-diagnostic patient-facing healthcare workflows like chronic care coordination, post-discharge follow-up, and care navigation.",
+        "Keebler Health is an AI-enabled risk adjustment company that analyzes electronic health records to identify chronic conditions for value-based care models.",
       productSummary:
-        "Hippocratic's LLM is fine-tuned and safety-tested specifically for healthcare consumer interactions. The model handles voice-based patient calls including post-discharge check-ins, medication reminders, chronic disease coaching, and care navigation. It is explicitly scoped to non-diagnostic use cases to reduce regulatory and safety risk. The platform has been validated by 5,500+ licensed clinicians.",
+        "Keebler Health's platform uses AI to analyze patient data from electronic health records to identify missing or undocumented chronic conditions, supporting risk adjustment and reimbursement for providers. The platform aims to help providers with value-based care models. By analyzing patient data, Keebler Health's tools enable more accurate risk adjustment and reimbursement.",
       targetCustomer:
-        "Health systems, large medical groups, and value-based care organizations seeking to scale patient outreach without expanding clinical headcount. Buyers are typically Chief Patient Experience Officers, VPs of Care Management, or Population Health leaders.",
-      verticalTags: ["Healthcare LLM", "Patient Experience AI", "Care Coordination", "Chronic Care Management", "Healthcare AI"],
+        "The target customer for Keebler Health is likely healthcare providers, particularly those involved in value-based care models, who need to accurately identify and document patient conditions for risk adjustment and reimbursement.",
+      verticalTags: ["Healthcare", "Risk Adjustment", "Value-Based Care"],
       signalsExtracted: [
-        { text: "$126M Series C (Nov 2025) at $3.5B valuation, total funding $404M across Seed ($65M), Series A ($53M+$17M), Series B ($141M), Series C ($126M)", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai" },
-        { text: "Investors include a16z, Premji, General Catalyst, plus strategic Memorial Hermann Health System", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai" },
-        { text: "Customers: Memorial Hermann, WellSpan, Cincinnati Children's, Hackensack Meridian — 40+ health system partners", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai" },
-        { text: "Safety validation by 5,500+ licensed clinicians, deliberate non-diagnostic scope", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai" },
-        { text: "Founders Munjal Shah (CEO, former Health IQ CEO), Vivek Natarajan (Google Health research), Saad Godil", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai" },
-        { text: "Handles thousands of patient calls per day in production", source: "ai", sourceUrl: "https://www.fiercehealthcare.com/ai-and-machine-learning/hippocratic-ai-banks-141m-series-b-hits-unicorn-status-it-rolls-out-ai" },
+        { text: "$16 million Series A funding", source: "ai", sourceUrl: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform" },
+        { text: "$23 million total funding", source: "ai", sourceUrl: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform" },
+        { text: "AI-enabled risk adjustment platform", source: "ai", sourceUrl: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform" },
+        { text: "analyzes electronic health records", source: "ai", sourceUrl: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform" },
+        { text: "supports value-based care models", source: "ai", sourceUrl: "https://www.mobihealthnews.com/news/keebler-health-raises-16m-ai-risk-adjustment-platform" },
       ],
-      stage: "Series C",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+      stage: "Series A",
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v2", fallback: false },
     }),
     thesisFit: JSON.stringify({
-      score: 8,
+      score: 8.5,
       recommendation: "PRIORITY_FOLLOW_UP",
       rationale:
-        "Archetype Vertical AI bet. Hippocratic is AI-native (purpose-built LLM, not a wrapper), tackles a high-value workflow (care coordination), has deep clinical safety credibility, and demonstrates real production deployment with named enterprise health system customers including a strategic investor (Memorial Hermann). The deliberate non-diagnostic scoping reflects sophisticated regulatory thinking. Series C at $3.5B valuation, $404M total raised is later than our ideal entry but the moat (clinical validation, safety methodology, strategic distribution) is the kind that compounds. PRIORITY to evaluate for relationship-building and potential later participation, and to study their approach as a template for our other healthcare-LLM bets.",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+        "Keebler Health demonstrates a strong fit with Proofpoint's investment thesis, given its clear focus on the healthcare vertical, specifically risk adjustment and value-based care. The company's AI-enabled platform and $16 million Series A funding round are notable signals. To move the score up, evidence of named brand-name design partners or significant ARR growth would be necessary. Despite being a strong company, no weaknesses in fit for the fund's thesis were identified.",
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v3", fallback: false },
     }),
   },
   {
@@ -200,7 +200,7 @@ const companies = [
       recommendation: "PASS",
       rationale:
         "Tempus is the category leader in precision oncology AI and has demonstrated the playbook for clinical+molecular data businesses. They are also public, $6B+ valuation, and well outside our investment scope. Including them here as a reference for diligencing competitive landscape when we look at earlier-stage precision medicine and oncology AI companies. Useful for spotting future founders (former Tempus product, data, and ML talent are spinning out interesting companies in 2026).",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v3", fallback: false },
     }),
   },
   {
@@ -237,7 +237,7 @@ const companies = [
       recommendation: "REVIEWING",
       rationale:
         "Solid Vertical AI thesis fit with some open questions. The hormone-tracking + ML stack is technically differentiated (four hormones from one cassette is unusual), and the B2B pivot to IVF clinics is the right strategic move. $29M Series B at $45M total funding is squarely in our range. Open questions: how much of the ML actually drives value vs. the hardware/test capability, and how defensible the B2B distribution will be against existing IVF clinic software vendors. Worth a deeper conversation with the founders to understand the technical moat. Likely REVIEWING for now; could move to PRIORITY after diligence.",
-      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v1", fallback: false },
+      _meta: { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", generatedAt: now, promptVersion: "v3", fallback: false },
     }),
   },
 ];

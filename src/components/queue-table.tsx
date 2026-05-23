@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -229,6 +229,97 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
     status: 150,
     score: 90,
   });
+  const tableWrapRef = useRef<HTMLDivElement | null>(null);
+  const [tableWidth, setTableWidth] = useState<number | null>(null);
+
+  const MIN_COL_WIDTHS = useMemo(
+    () => ({
+      company: 300,
+      vertical: 120,
+      stage: 100,
+      status: 110,
+      score: 90,
+    }),
+    []
+  );
+
+  useEffect(() => {
+    const node = tableWrapRef.current;
+    if (!node) return;
+
+    const update = () => setTableWidth(node.clientWidth);
+    update();
+
+    const observer = new ResizeObserver(() => update());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!tableWidth) return;
+
+    setColWidths((prev) => {
+      const total =
+        prev.company + prev.vertical + prev.stage + prev.status + prev.score;
+
+      if (total <= tableWidth) return prev;
+
+      const next = { ...prev };
+      let overflow = total - tableWidth;
+      const shrinkableKeys: Array<keyof typeof next> = [
+        "company",
+        "vertical",
+        "stage",
+        "status",
+      ];
+
+      while (overflow > 0.5) {
+        const candidates = shrinkableKeys.filter(
+          (key) => next[key] > MIN_COL_WIDTHS[key]
+        );
+        if (candidates.length === 0) break;
+
+        const share = overflow / candidates.length;
+        let reduced = 0;
+
+        for (const key of candidates) {
+          const room = next[key] - MIN_COL_WIDTHS[key];
+          const delta = Math.min(room, Math.max(1, share));
+          next[key] -= delta;
+          reduced += delta;
+        }
+
+        if (reduced === 0) break;
+        overflow -= reduced;
+      }
+
+      return next;
+    });
+  }, [MIN_COL_WIDTHS, tableWidth]);
+
+  const resizeColumn = (
+    key: keyof typeof colWidths,
+    delta: number,
+    minWidth: number
+  ) => {
+    setColWidths((prev) => {
+      const next = { ...prev };
+      const otherWidth = Object.entries(prev)
+        .filter(([col]) => col !== key)
+        .reduce((sum, [, width]) => sum + width, 0);
+
+      const maxWidth = tableWidth
+        ? Math.max(minWidth, tableWidth - otherWidth)
+        : Number.POSITIVE_INFINITY;
+
+      next[key] = Math.min(
+        maxWidth,
+        Math.max(minWidth, prev[key] + delta)
+      );
+
+      return next;
+    });
+  };
 
   // ── Filter option lists (derived from live data) ────────────────────────────
   const allVerticals = useMemo(() => {
@@ -354,7 +445,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
   );
 
   return (
-    <div>
+    <div ref={tableWrapRef}>
       {/* ── Search ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 border-b border-border pb-3 mb-6">
         <Search className="size-4 text-muted-foreground shrink-0" />
@@ -381,9 +472,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
             >
               {sortBtn("name", "Company")}
               <ResizeHandle
-                onResize={(delta) =>
-                  setColWidths((prev) => ({ ...prev, company: Math.max(300, prev.company + delta) }))
-                }
+                onResize={(delta) => resizeColumn("company", delta, 300)}
               />
             </TableHead>
 
@@ -401,9 +490,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
                 />
               </div>
               <ResizeHandle
-                onResize={(delta) =>
-                  setColWidths((prev) => ({ ...prev, vertical: Math.max(120, prev.vertical + delta) }))
-                }
+                onResize={(delta) => resizeColumn("vertical", delta, 120)}
               />
             </TableHead>
 
@@ -421,9 +508,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
                 />
               </div>
               <ResizeHandle
-                onResize={(delta) =>
-                  setColWidths((prev) => ({ ...prev, stage: Math.max(100, prev.stage + delta) }))
-                }
+                onResize={(delta) => resizeColumn("stage", delta, 100)}
               />
             </TableHead>
 
@@ -444,9 +529,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
                 />
               </div>
               <ResizeHandle
-                onResize={(delta) =>
-                  setColWidths((prev) => ({ ...prev, status: Math.max(110, prev.status + delta) }))
-                }
+                onResize={(delta) => resizeColumn("status", delta, 110)}
               />
             </TableHead>
 
