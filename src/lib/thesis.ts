@@ -13,3 +13,21 @@ core AI capability (not just a thin wrapper over a foundation model).
 Weak signals: horizontal AI tools, undifferentiated chatbot/copilot products, no clear
 vertical or buyer, generic LLM wrappers without proprietary data or workflow integration.
 `.trim();
+
+export function getAnalystGuidanceFromThesisFitJson(
+  thesisFitJson: string | null | undefined
+): string | undefined {
+  if (!thesisFitJson) return undefined;
+
+  try {
+    const parsed = JSON.parse(thesisFitJson) as {
+      _meta?: { analystGuidance?: unknown };
+    };
+    const analystGuidance = parsed._meta?.analystGuidance;
+    return typeof analystGuidance === "string" && analystGuidance.trim().length > 0
+      ? analystGuidance.trim()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}

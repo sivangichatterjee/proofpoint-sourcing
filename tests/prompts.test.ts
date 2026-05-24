@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { COMPANY_ANALYSIS_PROMPT, THESIS_FIT_PROMPT } from "../src/lib/prompts";
+import { getAnalystGuidanceFromThesisFitJson } from "../src/lib/thesis";
 
 test("thesis prompt enforces the early-stage mandate gate", () => {
   assert.equal(THESIS_FIT_PROMPT.version, "v4");
@@ -29,4 +30,31 @@ test("combined analysis prompt stays aligned with the standalone thesis rubric",
   assert.match(COMPANY_ANALYSIS_PROMPT.system, /core entry window is Pre-seed through Series B/i);
   assert.match(COMPANY_ANALYSIS_PROMPT.system, /Series C or later.*cap the score at 4/i);
   assert.match(COMPANY_ANALYSIS_PROMPT.system, /Score for fund fit, not company quality/i);
+});
+
+test("saved thesis guidance can be reused by the comparison model", () => {
+  const analystGuidance = getAnalystGuidanceFromThesisFitJson(
+    JSON.stringify({
+      score: 6,
+      recommendation: "REVIEWING",
+      rationale: "Needs more diligence.",
+      _meta: {
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        generatedAt: "2026-05-24T00:00:00.000Z",
+        promptVersion: "v4",
+        fallback: false,
+        analystGuidance: "be stricter about stage and fund fit",
+      },
+    })
+  );
+
+  assert.equal(analystGuidance, "be stricter about stage and fund fit");
+
+  const userPrompt = THESIS_FIT_PROMPT.buildUser({
+    profileJson: "{\"description\":\"Original\"}",
+    analystGuidance,
+  });
+
+  assert.match(userPrompt, /ANALYST DIRECTION:/);
+  assert.match(userPrompt, /be stricter about stage and fund fit/);
 });

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { callLLM } from "@/lib/llm";
 import { THESIS_FIT_PROMPT } from "@/lib/prompts";
+import { getAnalystGuidanceFromThesisFitJson } from "@/lib/thesis";
 import { ThesisFitSchema } from "@/lib/types";
 
 const EVAL_MODELS = [
@@ -30,6 +31,7 @@ export async function POST(
   }
 
   const profileJson = JSON.stringify(profileForPrompt, null, 2);
+  const analystGuidance = getAnalystGuidanceFromThesisFitJson(company.thesisFit);
 
   const thesisFitSchema = ThesisFitSchema.omit({ _meta: true });
 
@@ -38,7 +40,7 @@ export async function POST(
       const result = await callLLM(
         "thesis_fit",
         THESIS_FIT_PROMPT.system,
-        THESIS_FIT_PROMPT.buildUser({ profileJson }),
+        THESIS_FIT_PROMPT.buildUser({ profileJson, analystGuidance }),
         thesisFitSchema,
         {
           temperature: 0,

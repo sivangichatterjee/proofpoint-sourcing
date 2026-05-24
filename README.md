@@ -126,7 +126,7 @@ Then verify that:
 
 This is not a generic startup-ranking app. It is an analyst workflow tool.
 
-Two decisions shape the product:
+Three decisions shape the product:
 
 ### 1. Small-batch retrieval instead of exhaustive retrieval
 
@@ -152,31 +152,26 @@ The current thesis prompt is intentionally mandate-aware. It evaluates:
 
 This is why late-stage category leaders can still score low with a `PASS`.
 
-### 3. Prototype scope follows the current fund thesis
+### 3. Thesis-scoped instead of sector-agnostic
 
-This prototype is intentionally optimized for the three thesis verticals encoded into the current Proofpoint workflow:
+The prototype is intentionally optimized for the current Proofpoint thesis:
 
 - healthcare
 - life sciences
 - financial services / fintech
 
-That assumption shows up in both the thesis logic and the retrieval design. The goal for this version was not to build a general-purpose cross-sector company discovery engine. It was to build a higher-trust sourcing and review loop for the sectors the fund currently cares about most.
+That scope shows up in both retrieval and scoring. The goal here was not to build a general-purpose cross-sector discovery engine. It was to build a higher-trust workflow for the sectors the fund currently cares about most.
 
 ## Assumptions
 
-To keep the prototype focused and high-signal, I made a few explicit assumptions:
+To keep the prototype focused and high-signal, I made two explicit assumptions:
 
-1. **The product is thesis-scoped, not sector-agnostic**
-   - the core sourcing workflow is designed around healthcare, life sciences, and fintech
-   - those sectors are the ones most directly supported by the prompts, evaluation rubric, and source pool
+1. **The workflow is thesis-scoped**
+   - retrieval, prompts, and evaluation are optimized for healthcare, life sciences, and fintech
 
-2. **A curated source pool is preferable to unrestricted web search in v1**
-   - retrieval currently searches a bounded set of startup, funding, healthcare, life sciences, fintech, and general AI/tech publications
-   - this improves control, speed, and trust for the target workflow, even though it reduces breadth outside those sectors
-
-3. **The product should prioritize review quality over recall**
-   - a smaller set of more reviewable candidates is more useful to an analyst than a much larger set of noisy results
-   - the workflow is intentionally built around surfacing usable companies for inspection rather than exhaustive market coverage
+2. **Review quality matters more than recall in v1**
+   - a smaller set of usable candidates is more valuable than a larger noisy batch
+   - a curated source pool improves trust, speed, and control even if it reduces breadth
 
 ## Thesis logic
 
@@ -254,20 +249,14 @@ The requirement explicitly calls for public information and lightweight inputs. 
 - return URLs plus content snippets
 - support query variation quickly
 
-This was also a deliberate product choice. The prototype uses a **bounded retrieval layer**, not a fully open-ended web crawler. That helped keep the sourcing loop:
+This was also a deliberate product choice. The prototype uses a **bounded retrieval layer**, not a fully open-ended web crawler. That kept the sourcing loop:
 
 - fast enough for an interactive reviewer workflow
 - cheaper to run
 - easier to debug
 - easier to explain when a reviewer asks why a company was surfaced
 
-The tradeoff is lower breadth than a larger retrieval stack. The scan is only as broad as:
-
-- the search provider's coverage
-- the agent's query strategy
-- the app's dedupe and filtering rules
-
-If I were extending this beyond the prototype, I would likely move toward a hybrid retrieval system:
+The tradeoff is lower breadth than a larger retrieval stack. If I were extending this beyond the prototype, I would likely move toward a hybrid retrieval system:
 
 - broad search for first-pass discovery
 - targeted crawling for validation and enrichment
@@ -325,12 +314,7 @@ Why:
 - reliable structured output
 - gives a clean second opinion without adding too much latency or flaky formatting
 
-I intentionally reduced the comparison panel to two models:
-
-- current thesis
-- one alternative thesis
-
-That was a product decision. A third model sounded attractive, but in practice it kept adding noise, latency, or unreliable JSON behavior.
+I intentionally reduced the comparison panel to two models: the current thesis and one alternative thesis. A third model added more noise and latency than useful signal.
 
 ## Architecture overview
 
@@ -455,7 +439,7 @@ This was added because otherwise the search layer could find something "close en
 
 ## AI behaviors included
 
-The assignment asked for at least two meaningful AI-powered behaviors. This prototype has several:
+The assignment asked for at least two meaningful AI-powered behaviors. This prototype includes several:
 
 1. **Relevance filtering**
    - decide whether a public result is actually worth processing
@@ -524,8 +508,6 @@ Handled in [src/lib/agent.ts](src/lib/agent.ts):
 
 ## Human-in-the-loop design
 
-This was a core product goal.
-
 The reviewer can:
 
 - change workflow state
@@ -545,16 +527,6 @@ There are three practical ways to use this project:
 1. open the hosted Vercel deployment
 2. run it locally
 3. deploy your own Vercel copy
-
-### Option 1: Use the hosted Vercel deployment
-
-I also deployed the prototype on Vercel so it can be reviewed directly without any local setup.
-
-Direct hosted URL:
-
-```txt
-https://proofpoint-sourcing-vercel.vercel.app/
-```
 
 ### Option 2: Run locally
 
@@ -787,28 +759,11 @@ Good manual checks:
 
 ### Why not maximize retrieval volume?
 
-Because this is an analyst workflow, not a discovery firehose. A smaller, cleaner batch is easier to review and route.
-
-Tradeoff:
-
-- better analyst throughput
-- lower recall than a batch-heavy crawler
+Because this is an analyst workflow, not a discovery firehose. A smaller, cleaner batch is easier to review and route, even at the cost of recall.
 
 ### Why not fully open-web crawling in v1?
 
-Because the assignment asked for a lightweight internal workflow using public information and simple source inputs, not a full retrieval-infrastructure buildout.
-
-I intentionally kept retrieval bounded so the prototype would stay:
-
-- responsive in the UI
-- inspectable during review
-- affordable to run
-- understandable when debugging odd results
-
-Tradeoff:
-
-- better control and trust
-- less breadth than a multi-provider crawler or larger asynchronous sourcing system
+Because the assignment called for a lightweight internal workflow using public information and simple source inputs, not a full retrieval-infrastructure buildout. Keeping retrieval bounded improved trust and explainability, while giving up breadth.
 
 ### Why Next.js instead of splitting frontend and backend?
 
@@ -821,21 +776,11 @@ Tradeoff:
 
 ### Why only one alternative model in thesis comparison?
 
-Because trust and speed were more important than model count. Several candidate third models introduced too much latency, calibration drift, or structured-output fragility.
-
-Tradeoff:
-
-- less model variety
-- better clarity and reliability
+Because trust and speed were more important than model count. A third model introduced more latency and structured-output fragility than decision value.
 
 ### Why strict final vertical and stage checks?
 
-Because users expect the queue to honor what they asked for. Silent drift to adjacent sectors or stages hurts trust.
-
-Tradeoff:
-
-- more predictable output
-- slightly lower recall in narrow scans
+Because users expect the queue to honor what they asked for. Silent drift to adjacent sectors or stages hurts trust, even if stricter checks reduce recall in narrow scans.
 
 ## What I would do next with more time
 
@@ -871,13 +816,4 @@ If I had more time, I would invest in four areas:
 
 ## Final note
 
-This prototype intentionally tries to feel like a practical internal analyst tool, not a flashy AI demo.
-
-The product decisions here were mostly about:
-
-- keeping the workflow understandable
-- making AI outputs inspectable and overrideable
-- preserving analyst trust
-- staying lightweight enough to build and demo cleanly
-
-That felt most aligned with the assignment’s spirit.
+This prototype is meant to feel like a practical internal analyst tool, not a flashy AI demo. The decisions here were mostly about clarity, inspectability, overrideability, and trust.
