@@ -24,46 +24,6 @@ Demo video:
 
 [https://www.loom.com/share/02908a3f668242fa83b95c687f38d5fb](https://www.loom.com/share/02908a3f668242fa83b95c687f38d5fb)
 
-## What the app does
-
-The app gives a Proofpoint team member a simple review loop:
-
-- run a sourcing scan from a natural-language query
-- watch scan progress live or let it continue in the background
-- review surfaced companies in a central queue
-- search, sort, filter, and resize queue columns
-- open a company detail page with:
-  - structured AI-generated company profile
-  - source-backed signals
-  - AI-generated thesis-fit score and rationale
-  - manual workflow status
-  - reviewer notes
-  - next step
-  - thesis comparison against a second model
-- regenerate profile or thesis with reviewer guidance
-- keep everything visible in the queue for follow-up
-
-## Feature checklist against the assignment
-
-This prototype covers the requested scope:
-
-- Agent-led sourcing flow over public information
-- Central queue / pipeline view
-- Search, filter, and sort
-- Structured company profile generation
-- AI-generated thesis-fit reasoning and recommendation
-- Workflow states:
-  - `NEW`
-  - `REVIEWING`
-  - `PRIORITY_FOLLOW_UP`
-  - `PASS`
-- Human notes and next-step tracking
-- Human override of AI output through:
-  - regeneration with guidance
-  - status changes
-  - notes
-  - thesis comparison selection
-
 ## Example reviewer flows to try
 
 ### Flow 1: Healthcare seed sourcing
@@ -117,6 +77,46 @@ Then verify that:
 - the regenerated thesis reflects the requested emphasis
 - the recommendation still follows the score band
 - the human reviewer can keep or override the updated view
+
+## What the app does
+
+The app gives a Proofpoint team member a simple review loop:
+
+- run a sourcing scan from a natural-language query
+- watch scan progress live or let it continue in the background
+- review surfaced companies in a central queue
+- search, sort, filter, and resize queue columns
+- open a company detail page with:
+  - structured AI-generated company profile
+  - source-backed signals
+  - AI-generated thesis-fit score and rationale
+  - manual workflow status
+  - reviewer notes
+  - next step
+  - thesis comparison against a second model
+- regenerate profile or thesis with reviewer guidance
+- keep everything visible in the queue for follow-up
+
+## Feature checklist against the assignment
+
+This prototype covers the requested scope:
+
+- Agent-led sourcing flow over public information
+- Central queue / pipeline view
+- Search, filter, and sort
+- Structured company profile generation
+- AI-generated thesis-fit reasoning and recommendation
+- Workflow states:
+  - `NEW`
+  - `REVIEWING`
+  - `PRIORITY_FOLLOW_UP`
+  - `PASS`
+- Human notes and next-step tracking
+- Human override of AI output through:
+  - regeneration with guidance
+  - status changes
+  - notes
+  - thesis comparison selection
 
 ## Product philosophy
 
