@@ -52,6 +52,22 @@ This prototype covers the requested scope:
   - notes
   - thesis comparison selection
 
+## Live app
+
+As a bonus, I also deployed the prototype on Vercel so it can be reviewed directly without any local setup.
+
+Hosted app:
+
+```txt
+https://proofpoint-sourcing-vercel.vercel.app/
+```
+
+Demo video:
+
+```txt
+LUMOS_VIDEO_LINK_HERE
+```
+
 ## Example reviewer flows to try
 
 ### Flow 1: Healthcare seed sourcing
@@ -532,15 +548,13 @@ There are three practical ways to use this project:
 
 ### Option 1: Use the hosted Vercel deployment
 
-As a bonus, this prototype is also deployed so it can be reviewed without any local setup.
+I also deployed the prototype on Vercel so it can be reviewed directly without any local setup.
 
 Direct hosted URL:
 
 ```txt
-https://proofpoint-sourcing-vercel.vercel.app
+https://proofpoint-sourcing-vercel.vercel.app/
 ```
-
-If you later attach a custom domain, replace that URL with the custom production URL in this README.
 
 ### Option 2: Run locally
 
@@ -559,7 +573,7 @@ npm install
 
 Use `.env.local` for normal local development.
 
-Recommended `.env.local`:
+Suggested `.env.local`:
 
 ```env
 DATABASE_URL=file:./dev.db
@@ -569,7 +583,7 @@ OPENAI_API_KEY=your_openai_key
 SCAN_MODE=live
 ```
 
-Optional if you want local to point at a hosted Turso database instead of SQLite:
+Optional local Turso config instead of SQLite:
 
 ```env
 TURSO_DATABASE_URL=libsql://...
@@ -578,7 +592,7 @@ TURSO_AUTH_TOKEN=...
 
 #### 3. Initialize the local database
 
-If you are starting fresh, run:
+For a fresh local database, run:
 
 ```bash
 npx prisma generate
@@ -603,9 +617,9 @@ Open:
 http://localhost:3000
 ```
 
-#### 5. Optional: test production-like behavior locally
+#### 5. Optional: production-like local test
 
-If you want to test behavior closer to Vercel:
+For a production-like local test:
 
 ```bash
 npm run build
@@ -617,11 +631,11 @@ Difference:
 - `npm run dev` = development mode, hot reload, dev-only behavior
 - `npm run start` = production mode, after a successful build
 
-#### Optional: pull Vercel envs without overwriting local dev config
+#### Optional: pull Vercel envs into a separate local file
 
-Do not let Vercel CLI overwrite your normal `.env.local`.
+I keep `.env.local` separate from Vercel-pulled envs.
 
-If you want a local copy of the Vercel envs, use:
+For a separate local copy of the Vercel envs:
 
 ```bash
 vercel env pull .env.vercel.local
@@ -634,7 +648,7 @@ That keeps:
 
 ### Option 3: Deploy your own Vercel copy
 
-#### Recommended production database
+#### Production database
 
 Do not use local SQLite in production.
 
@@ -660,7 +674,7 @@ SCAN_MODE=live
 
 #### 2. Decide how to initialize production data
 
-You have two clean options.
+There are two clean options.
 
 Option A: mirror your local seeded database
 
