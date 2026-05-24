@@ -25,7 +25,7 @@ https://proofpoint-sourcing-vercel.vercel.app/
 Demo video:
 
 ```txt
-LUMOS_VIDEO_LINK_HERE
+https://www.loom.com/share/02908a3f668242fa83b95c687f38d5fb
 ```
 
 ## What the app does
