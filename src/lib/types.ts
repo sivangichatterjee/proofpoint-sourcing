@@ -19,6 +19,24 @@ export function normalizeSignals(
   );
 }
 
+export function prepareSignalsForSave(
+  signals: SignalItem[],
+  now: () => string = () => new Date().toISOString()
+): SignalItem[] {
+  return signals
+    .map((signal) => ({
+      ...signal,
+      text: signal.text.trim(),
+      sourceUrl: signal.sourceUrl?.trim() || undefined,
+    }))
+    .filter((signal) => signal.text.length > 0)
+    .map((signal) =>
+      signal.source === "analyst"
+        ? { ...signal, addedAt: signal.addedAt ?? now() }
+        : signal
+    );
+}
+
 export const NEXT_STEP_OPTIONS = [
   "Reach out to founder",
   "Request pitch deck",

@@ -30,7 +30,13 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { NEXT_STEP_OPTIONS, normalizeSignals } from "@/lib/types";
-import type { CompanyStatus, CompanyProfile, ThesisFit, SignalItem } from "@/lib/types";
+import {
+  prepareSignalsForSave,
+  type CompanyStatus,
+  type CompanyProfile,
+  type ThesisFit,
+  type SignalItem,
+} from "@/lib/types";
 import { normalizeStageValue } from "@/lib/stage";
 
 const ALL_STATUSES: CompanyStatus[] = [
@@ -525,11 +531,7 @@ function SignalsField({
 
   function updateSignal(index: number, text: string) {
     setEditSignals((prev) =>
-      prev.map((s, i) =>
-        i === index
-          ? { ...s, text, source: s.source === "ai" ? "analyst" : s.source }
-          : s
-      )
+      prev.map((s, i) => (i === index ? { ...s, text } : s))
     );
   }
 
@@ -540,7 +542,6 @@ function SignalsField({
           ? {
               ...s,
               sourceUrl: sourceUrl.trim() || undefined,
-              source: s.source === "ai" ? "analyst" : s.source,
             }
           : s
       )
@@ -565,20 +566,7 @@ function SignalsField({
   }
 
   async function saveSignals() {
-    const finalSignals: SignalItem[] = editSignals
-      .filter((s) => s.text.trim())
-      .map((s) => {
-        const originalMatch = signals.find(
-          (orig) => orig.source === "ai" && orig.text === s.text
-        );
-        if (originalMatch) return originalMatch;
-        return {
-          text: s.text.trim(),
-          source: "analyst" as const,
-          addedAt: s.addedAt ?? new Date().toISOString(),
-          sourceUrl: s.sourceUrl?.trim() || undefined,
-        };
-      });
+    const finalSignals = prepareSignalsForSave(editSignals);
 
     setSaving(true);
     try {
