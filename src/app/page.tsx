@@ -7,6 +7,20 @@ import { normalizeCompanyName } from "@/lib/companyDedupe";
 
 export const dynamic = "force-dynamic";
 
+function formatEasternTimestamp(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(date);
+}
+
 export default async function QueuePage() {
   const [allCompanies, lastScan] = await Promise.all([
     db.company.findMany({
@@ -40,7 +54,7 @@ export default async function QueuePage() {
   const scanMode = process.env.SCAN_MODE ?? "mock";
 
   const subtitle = lastScan
-    ? `Vertical AI deal flow · Updated ${new Date(lastScan.createdAt).toLocaleString()} · ${companies.length} ${companies.length === 1 ? "company" : "companies"}`
+    ? `Vertical AI deal flow · Updated ${formatEasternTimestamp(new Date(lastScan.createdAt))} · ${companies.length} ${companies.length === 1 ? "company" : "companies"}`
     : `Vertical AI deal flow · ${companies.length} ${companies.length === 1 ? "company" : "companies"}`;
 
   return (
