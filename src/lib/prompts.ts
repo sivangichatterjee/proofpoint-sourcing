@@ -60,7 +60,7 @@ Extract the structured profile.`,
 };
 
 export const THESIS_FIT_PROMPT = {
-  version: "v4",
+  version: "v5",
   system: `You are a senior partner at Proofpoint Capital evaluating a sourced company against the firm's investment thesis. Your output drives whether an analyst spends time on this deal next, so be calibrated and conservative — distinguish genuine fits from adjacent companies.
 
 Proofpoint's thesis:
@@ -115,17 +115,30 @@ Output strict JSON only, no preamble:
     humanEditedRationale,
     reviewerProfileEdits,
     analystGuidance,
+    reviewerOverrideMode,
   }: {
     profileJson: string;
     humanEditedRationale?: string;
     reviewerProfileEdits?: Record<string, string>;
     analystGuidance?: string;
+    reviewerOverrideMode?: "authoritative";
   }) => `${analystGuidance ? `ANALYST DIRECTION:
 The analyst has requested the following focus for this thesis assessment:
 "${analystGuidance}"
 Treat this as a hard emphasis instruction. The rationale must directly address this requested focus while still following the scoring rubric and recommendation mapping exactly.
 If the profile lacks evidence for the requested focus, state that absence as a diligence gap and explain how it affects the score.
 Before responding, verify that the rationale explicitly reflects this analyst direction.
+
+` : ""}${reviewerOverrideMode === "authoritative"
+    ? `REGENERATION MODE:
+The user explicitly chose to regenerate this thesis while incorporating reviewer edits.
+
+INSTRUCTIONS:
+- Treat reviewer-provided edits and judgments as the primary working truth for this regeneration run.
+- Do not quietly revert to the prior machine interpretation if it conflicts with the reviewer's edits.
+- The regenerated score, recommendation, and rationale MUST materially reflect the incorporated reviewer edits.
+- If reviewer edits change the conclusion, follow the reviewer-updated conclusion even when it conflicts with the default mandate gate.
+- If the reviewer input is ambiguous, resolve the ambiguity conservatively, but do not ignore the reviewer edits.
 
 ` : ""}${reviewerProfileEdits && Object.keys(reviewerProfileEdits).length > 0
     ? `REVIEWER-CORRECTED PROFILE FIELDS:
@@ -136,17 +149,19 @@ INSTRUCTIONS:
 - Treat these corrections as higher-confidence than any model-inferred profile detail.
 - Do not contradict or ignore these corrections.
 - If they materially affect stage fit, vertical fit, traction quality, or company risk, the score and recommendation MUST reflect that.
+- If authoritative regeneration mode is active, these corrections take precedence over the prior inferred fit.
 
 ` : ""}${humanEditedRationale ? `CRITICAL REVIEWER OVERRIDE:
 A human analyst with direct knowledge of this company has provided the following assessment:
 "${humanEditedRationale}"
 
 INSTRUCTIONS:
-- This human assessment OVERRIDES any positive signals in the profile below
-- If the reviewer says this is a bad investment, your score MUST reflect that (1-3 range)
-- If the reviewer says do not invest, your recommendation MUST be PASS
+- This human assessment takes precedence over the prior machine-generated thesis.
+- If the reviewer describes the company as a strong investment, the regenerated score and recommendation MUST move materially upward to reflect that view.
+- If the reviewer describes the company as a poor investment, the regenerated score and recommendation MUST move materially downward to reflect that view.
+- If the reviewer explicitly overrides a stage or mandate concern, do not let the default mandate gate silently dominate the final answer.
 - Do not contradict the reviewer. Do not explain away their concerns.
-- Your rationale must directly address why the reviewer's concerns led to this score
+- Your rationale must directly address how the reviewer's judgment changed the score and recommendation.
 - The profile data below provides context but the reviewer's judgment takes precedence
 
 ` : ""}Company profile:

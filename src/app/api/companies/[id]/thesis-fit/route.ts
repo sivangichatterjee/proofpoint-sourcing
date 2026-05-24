@@ -32,6 +32,8 @@ export async function POST(
     typeof body.analystGuidance === "string"
       ? body.analystGuidance.trim() || undefined
       : undefined;
+  const reviewerOverrideMode =
+    body.reviewerOverrideMode === "authoritative" ? "authoritative" : undefined;
 
   const company = await db.company.findUnique({ where: { id } });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -59,6 +61,7 @@ export async function POST(
       humanEditedRationale,
       reviewerProfileEdits,
       analystGuidance,
+      reviewerOverrideMode,
     }),
     thesisFitSchema,
     {

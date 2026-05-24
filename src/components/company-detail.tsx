@@ -865,7 +865,7 @@ export function CompanyDetail({
   const [decisionStatus, setDecisionStatus] = useState(status);
   const [decisionNextStep, setDecisionNextStep] = useState(nextStep ?? "");
   const [decisionSaving, setDecisionSaving] = useState(false);
-  const [decisionDismissed, setDecisionDismissed] = useState(false);
+  const [dismissedRecommendationKey, setDismissedRecommendationKey] = useState<string | null>(null);
   const [showEval, setShowEval] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalResults, setEvalResults] = useState<EvalResult[] | null>(null);
@@ -887,13 +887,16 @@ export function CompanyDetail({
       DEFAULT_NEXT_STEP_BY_STATUS[aiRecommendedStatus] ||
       "Add to watch list"
     : "";
+  const recommendationBannerKey =
+    aiRecommendedStatus && aiRecommendedStatus !== status
+      ? `${status}->${aiRecommendedStatus}`
+      : null;
 
   useEffect(() => {
-    if (status !== "NEW" || !aiRecommendedStatus) return;
+    if (!recommendationBannerKey || !aiRecommendedStatus) return;
     setDecisionStatus(aiRecommendedStatus);
     setDecisionNextStep(aiSuggestedNextStep);
-    setDecisionDismissed(false);
-  }, [status, aiRecommendedStatus, aiSuggestedNextStep]);
+  }, [recommendationBannerKey, aiRecommendedStatus, aiSuggestedNextStep]);
 
   const TRACKED_PROFILE_FIELDS: Record<string, string> = {
     description: "Description",
@@ -997,6 +1000,8 @@ export function CompanyDetail({
     const reviewerCorrections = includeEditedProfileInThesis
       ? reviewerProfileContext
       : undefined;
+    const reviewerOverrideMode =
+      context || reviewerCorrections ? "authoritative" : undefined;
     try {
       const res = await fetch(`/api/companies/${id}/thesis-fit`, {
         method: "POST",
@@ -1005,6 +1010,7 @@ export function CompanyDetail({
           humanEditedRationale: context ?? null,
           reviewerProfileEdits: reviewerCorrections,
           analystGuidance: guidance || undefined,
+          reviewerOverrideMode,
         }),
       });
       if (res.ok) {
@@ -1103,7 +1109,7 @@ export function CompanyDetail({
       setSelectedNextStep(nextAction);
       setDecisionStatus(nextStatus);
       setDecisionNextStep(nextAction);
-      setDecisionDismissed(true);
+      setDismissedRecommendationKey(recommendationBannerKey);
       setStatusUpdateConfirmed(true);
       setTimeout(() => setStatusUpdateConfirmed(false), 3000);
       toast.success("Decision saved");
@@ -1470,14 +1476,14 @@ export function CompanyDetail({
 	                </span>
 	              </div>
 	            </div>
-	            {(() => {
-	              const actionable =
-	                aiRecommendedStatus &&
-	                status === "NEW" &&
-	                aiRecommendedStatus !== status &&
-	                !decisionDismissed;
+		            {(() => {
+		              const actionable =
+		                recommendationBannerKey &&
+		                dismissedRecommendationKey !== recommendationBannerKey;
 
-	              if (!actionable) return null;
+		              if (!actionable || !aiRecommendedStatus || !recommendationBannerKey) {
+		                return null;
+		              }
 
 	              return (
 	                <div className="rounded-lg border border-[var(--proofpoint-orange)]/20 bg-[var(--proofpoint-orange)]/5 p-4">
@@ -1546,13 +1552,13 @@ export function CompanyDetail({
 	                      >
 	                        {decisionSaving ? "Saving..." : "Save decision"}
 	                      </Button>
-	                      <Button
-	                        size="sm"
-	                        variant="ghost"
-	                        onClick={() => setDecisionDismissed(true)}
-	                        disabled={decisionSaving}
-	                        className="text-muted-foreground hover:text-foreground"
-	                      >
+		                      <Button
+		                        size="sm"
+		                        variant="ghost"
+		                        onClick={() => setDismissedRecommendationKey(recommendationBannerKey)}
+		                        disabled={decisionSaving}
+		                        className="text-muted-foreground hover:text-foreground"
+		                      >
 	                        Dismiss
 	                      </Button>
 	                    </div>
