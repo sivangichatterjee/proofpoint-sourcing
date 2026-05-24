@@ -133,6 +133,7 @@ export type CompanyDetailProps = {
   oneLiner: string | null;
   vertical: string | null;
   stage: string | null;
+  createdAt: string;
   status: string;
   nextStep: string | null;
   profile: CompanyProfile | null;
@@ -825,6 +826,7 @@ export function CompanyDetail({
   oneLiner,
   vertical,
   stage,
+  createdAt,
   status,
   nextStep,
   profile,
@@ -1193,6 +1195,16 @@ export function CompanyDetail({
   }
 
   const sourceInfo = getDisplayHost({ sourceUrl, website });
+  const surfacedAt = new Date(createdAt);
+  const surfacedLabel = Number.isNaN(surfacedAt.getTime())
+    ? "—"
+    : surfacedAt.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: surfacedAt.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
 
   return (
     <div className="space-y-8">
@@ -1283,7 +1295,7 @@ export function CompanyDetail({
       </div>
 
       {/* ── Meta row ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-8 pb-6 border-b border-border">
+      <div className="grid grid-cols-4 gap-8 pb-6 border-b border-border">
         <div>
           <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
             Source
@@ -1323,6 +1335,12 @@ export function CompanyDetail({
             placeholder="Add or update the stage"
             displayValue={(currentValue) => currentValue ?? "—"}
           />
+        </div>
+        <div>
+          <p className="text-xs font-medium font-sans uppercase tracking-[0.08em] text-muted-foreground/80 mb-1.5">
+            Surfaced
+          </p>
+          <span className="text-lg text-foreground">{surfacedLabel}</span>
         </div>
       </div>
 

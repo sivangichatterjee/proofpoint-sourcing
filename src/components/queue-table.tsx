@@ -105,6 +105,8 @@ const QUEUE_STATUS_LABELS: Record<CompanyStatus, string> = {
   PASS: "PASS",
 };
 
+type SurfacedFilter = "all" | "today" | "yesterday" | "custom";
+
 // ── FilterPopover ─────────────────────────────────────────────────────────────
 
 function FilterPopover({
@@ -214,6 +216,166 @@ function displayStage(value: string | null | undefined): string {
   return normalizeStageValue(value) ?? "—";
 }
 
+function startOfDayLocal(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function isSameLocalDay(left: Date, right: Date): boolean {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function formatSurfacedDate(date: Date): { dayLabel: string; timeLabel: string } {
+  const now = new Date();
+  const today = startOfDayLocal(now);
+  const yesterday = addDays(today, -1);
+
+  let dayLabel: string;
+  if (isSameLocalDay(date, today)) {
+    dayLabel = "Today";
+  } else if (isSameLocalDay(date, yesterday)) {
+    dayLabel = "Yesterday";
+  } else {
+    dayLabel = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+    });
+  }
+
+  const timeLabel = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return { dayLabel, timeLabel };
+}
+
+function formatSurfacedFilterLabel(filter: SurfacedFilter, customDate: string): string {
+  switch (filter) {
+    case "today":
+      return "Today";
+    case "yesterday":
+      return "Yesterday";
+    case "custom": {
+      if (!customDate) return "Custom date";
+      const parsed = new Date(`${customDate}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) return "Custom date";
+      return parsed.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: parsed.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+      });
+    }
+    default:
+      return "All dates";
+  }
+}
+
+function SurfacedFilterPopover({
+  filter,
+  customDate,
+  onFilterChange,
+  onCustomDateChange,
+  onClear,
+}: {
+  filter: SurfacedFilter;
+  customDate: string;
+  onFilterChange: (next: SurfacedFilter) => void;
+  onCustomDateChange: (value: string) => void;
+  onClear: () => void;
+}) {
+  const isActive = filter !== "all" || customDate.length > 0;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="inline-flex items-center rounded p-0.5 hover:bg-muted transition-colors"
+          aria-label="Filter surfaced date"
+        >
+          <ListFilter
+            className={cn(
+              "size-4 ml-1.5",
+              isActive ? "text-[var(--proofpoint-orange)]" : "text-muted-foreground/60"
+            )}
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="end">
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              Surfaced
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Filter the queue by when companies first entered it.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ["all", "All dates"],
+              ["today", "Today"],
+              ["yesterday", "Yesterday"],
+              ["custom", "Custom date"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => onFilterChange(value)}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-sm text-left transition-colors",
+                  filter === value
+                    ? "border-[var(--proofpoint-orange)] bg-[var(--proofpoint-orange)]/6 text-foreground"
+                    : "border-border text-muted-foreground hover:border-[var(--proofpoint-orange)]/30 hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {filter === "custom" && (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="surfaced-date"
+                className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+              >
+                Custom date
+              </label>
+              <input
+                id="surfaced-date"
+                type="date"
+                value={customDate}
+                onChange={(e) => {
+                  onCustomDateChange(e.target.value);
+                  onFilterChange("custom");
+                }}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-[var(--proofpoint-orange)]"
+              />
+            </div>
+          )}
+          {isActive && (
+            <button
+              onClick={onClear}
+              className="text-xs text-[var(--proofpoint-orange)] hover:underline"
+            >
+              Clear surfaced filter
+            </button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function QueueTable({ companies }: { companies: CompanyRow[] }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{
@@ -227,12 +389,15 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
   const [excludedStatuses, setExcludedStatuses] = useState<Set<string>>(
     new Set()
   );
+  const [surfacedFilter, setSurfacedFilter] = useState<SurfacedFilter>("all");
+  const [customSurfacedDate, setCustomSurfacedDate] = useState("");
   const [colWidths, setColWidths] = useState({
-    company: 600,
+    company: 470,
     vertical: 180,
     stage: 120,
-    status: 150,
-    score: 90,
+    status: 135,
+    surfaced: 125,
+    score: 100,
   });
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
   const [tableWidth, setTableWidth] = useState<number | null>(null);
@@ -243,6 +408,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
       vertical: 120,
       stage: 100,
       status: 110,
+      surfaced: 110,
       score: 90,
     }),
     []
@@ -265,7 +431,12 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
 
     setColWidths((prev) => {
       const total =
-        prev.company + prev.vertical + prev.stage + prev.status + prev.score;
+        prev.company +
+        prev.vertical +
+        prev.stage +
+        prev.status +
+        prev.surfaced +
+        prev.score;
 
       if (total <= tableWidth) return prev;
 
@@ -276,6 +447,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
         "vertical",
         "stage",
         "status",
+        "surfaced",
       ];
 
       while (overflow > 0.5) {
@@ -310,14 +482,24 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
     setColWidths((prev) => {
       const next = { ...prev };
       const total =
-        prev.company + prev.vertical + prev.stage + prev.status + prev.score;
+        prev.company +
+        prev.vertical +
+        prev.stage +
+        prev.status +
+        prev.surfaced +
+        prev.score;
       const slack = tableWidth ? Math.max(0, tableWidth - total) : 0;
 
       if (key === "company") {
         const maxWidth = tableWidth
           ? Math.max(
               minWidth,
-              tableWidth - (prev.vertical + prev.stage + prev.status + prev.score)
+              tableWidth -
+                (prev.vertical +
+                  prev.stage +
+                  prev.status +
+                  prev.surfaced +
+                  prev.score)
             )
           : Number.POSITIVE_INFINITY;
 
@@ -357,6 +539,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
     colWidths.vertical +
     colWidths.stage +
     colWidths.status +
+    colWidths.surfaced +
     colWidths.score;
 
   // ── Filter option lists (derived from live data) ────────────────────────────
@@ -417,8 +600,38 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
         !excludedStages.has(c.stage ?? "(no stage)");
       const matchesStatus =
         excludedStatuses.size === 0 || !excludedStatuses.has(c.status);
+      const matchesSurfaced = (() => {
+        if (surfacedFilter === "all") return true;
 
-      return matchesSearch && matchesVertical && matchesStage && matchesStatus;
+        const surfacedAt = c.createdAt;
+        const today = startOfDayLocal(new Date());
+
+        if (surfacedFilter === "today") {
+          return surfacedAt >= today;
+        }
+
+        if (surfacedFilter === "yesterday") {
+          const yesterday = addDays(today, -1);
+          return surfacedAt >= yesterday && surfacedAt < today;
+        }
+
+        if (surfacedFilter === "custom" && customSurfacedDate) {
+          const selectedStart = new Date(`${customSurfacedDate}T00:00:00`);
+          if (Number.isNaN(selectedStart.getTime())) return true;
+          const selectedEnd = addDays(selectedStart, 1);
+          return surfacedAt >= selectedStart && surfacedAt < selectedEnd;
+        }
+
+        return true;
+      })();
+
+      return (
+        matchesSearch &&
+        matchesVertical &&
+        matchesStage &&
+        matchesStatus &&
+        matchesSurfaced
+      );
     });
 
     if (!sort) return filtered;
@@ -455,6 +668,8 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
           if (sb === null) return -1;
           return dir * (sa - sb);
         }
+        case "createdAt":
+          return dir * (a.createdAt.getTime() - b.createdAt.getTime());
         default:
           return 0;
       }
@@ -465,6 +680,8 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
     excludedVerticals,
     excludedStages,
     excludedStatuses,
+    surfacedFilter,
+    customSurfacedDate,
     sort,
   ]);
 
@@ -574,6 +791,29 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
               />
             </TableHead>
 
+            {/* Surfaced */}
+            <TableHead
+              style={{ width: colWidths.surfaced, minWidth: 120, position: "relative" }}
+              className={thClass}
+            >
+              <div className="flex items-center justify-end gap-1">
+                {sortBtn("createdAt", "Surfaced")}
+                <SurfacedFilterPopover
+                  filter={surfacedFilter}
+                  customDate={customSurfacedDate}
+                  onFilterChange={setSurfacedFilter}
+                  onCustomDateChange={setCustomSurfacedDate}
+                  onClear={() => {
+                    setSurfacedFilter("all");
+                    setCustomSurfacedDate("");
+                  }}
+                />
+              </div>
+              <ResizeHandle
+                onResize={(delta) => resizeColumn("surfaced", delta, 120)}
+              />
+            </TableHead>
+
             {/* Score — no ResizeHandle */}
             <TableHead
               style={{ width: colWidths.score, minWidth: 70 }}
@@ -589,7 +829,7 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
           {displayed.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 className="py-8 text-center text-muted-foreground"
               >
                 No companies match your filters.
@@ -637,6 +877,21 @@ export function QueueTable({ companies }: { companies: CompanyRow[] }) {
                     )}>
                       {QUEUE_STATUS_LABELS[company.status as CompanyStatus] ?? company.status}
                     </div>
+                  </TableCell>
+                  <TableCell style={{ width: colWidths.surfaced }} className="py-6 align-middle">
+                    {(() => {
+                      const surfaced = formatSurfacedDate(company.createdAt);
+                      return (
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-foreground tabular-nums">
+                            {surfaced.dayLabel}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                            {surfaced.timeLabel}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell style={{ width: colWidths.score }} className="py-6 align-middle text-right">
                     {score !== null ? (

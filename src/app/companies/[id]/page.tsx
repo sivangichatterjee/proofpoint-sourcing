@@ -43,6 +43,7 @@ export default async function CompanyDetailPage({
         oneLiner={company.oneLiner}
         vertical={company.vertical}
         stage={company.stage}
+        createdAt={company.createdAt.toISOString()}
         status={company.status}
         nextStep={company.nextStep}
         profile={profile}
