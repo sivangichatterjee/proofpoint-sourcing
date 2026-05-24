@@ -12,6 +12,22 @@ This project was built for the Proofpoint Capital AI Intern exercise. The produc
 
 The prototype favors clarity, speed, and analyst usability over breadth or overengineering.
 
+## Live app
+
+As a bonus, I also deployed the prototype on Vercel so it can be reviewed directly without any local setup.
+
+Hosted app:
+
+```txt
+https://proofpoint-sourcing-vercel.vercel.app/
+```
+
+Demo video:
+
+```txt
+LUMOS_VIDEO_LINK_HERE
+```
+
 ## What the app does
 
 The app gives a Proofpoint team member a simple review loop:
@@ -51,22 +67,6 @@ This prototype covers the requested scope:
   - status changes
   - notes
   - thesis comparison selection
-
-## Live app
-
-As a bonus, I also deployed the prototype on Vercel so it can be reviewed directly without any local setup.
-
-Hosted app:
-
-```txt
-https://proofpoint-sourcing-vercel.vercel.app/
-```
-
-Demo video:
-
-```txt
-LUMOS_VIDEO_LINK_HERE
-```
 
 ## Example reviewer flows to try
 
