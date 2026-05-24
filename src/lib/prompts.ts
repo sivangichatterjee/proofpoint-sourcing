@@ -60,7 +60,7 @@ Extract the structured profile.`,
 };
 
 export const THESIS_FIT_PROMPT = {
-  version: "v3",
+  version: "v4",
   system: `You are a senior partner at Proofpoint Capital evaluating a sourced company against the firm's investment thesis. Your output drives whether an analyst spends time on this deal next, so be calibrated and conservative — distinguish genuine fits from adjacent companies.
 
 Proofpoint's thesis:
@@ -113,10 +113,12 @@ Output strict JSON only, no preamble:
   buildUser: ({
     profileJson,
     humanEditedRationale,
+    reviewerProfileEdits,
     analystGuidance,
   }: {
     profileJson: string;
     humanEditedRationale?: string;
+    reviewerProfileEdits?: Record<string, string>;
     analystGuidance?: string;
   }) => `${analystGuidance ? `ANALYST DIRECTION:
 The analyst has requested the following focus for this thesis assessment:
@@ -124,6 +126,16 @@ The analyst has requested the following focus for this thesis assessment:
 Treat this as a hard emphasis instruction. The rationale must directly address this requested focus while still following the scoring rubric and recommendation mapping exactly.
 If the profile lacks evidence for the requested focus, state that absence as a diligence gap and explain how it affects the score.
 Before responding, verify that the rationale explicitly reflects this analyst direction.
+
+` : ""}${reviewerProfileEdits && Object.keys(reviewerProfileEdits).length > 0
+    ? `REVIEWER-CORRECTED PROFILE FIELDS:
+A human analyst has corrected the following company facts:
+${Object.entries(reviewerProfileEdits).map(([field, value]) => `- ${field}: "${value}"`).join("\n")}
+
+INSTRUCTIONS:
+- Treat these corrections as higher-confidence than any model-inferred profile detail.
+- Do not contradict or ignore these corrections.
+- If they materially affect stage fit, vertical fit, traction quality, or company risk, the score and recommendation MUST reflect that.
 
 ` : ""}${humanEditedRationale ? `CRITICAL REVIEWER OVERRIDE:
 A human analyst with direct knowledge of this company has provided the following assessment:

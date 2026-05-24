@@ -522,24 +522,44 @@ The reviewer can:
 
 The app treats AI as a first-pass analyst assistant, not a final authority.
 
-## Local setup
+## Running the app
 
-### Requirements
+There are three practical ways to use this project:
+
+1. open the hosted Vercel deployment
+2. run it locally
+3. deploy your own Vercel copy
+
+### Option 1: Use the hosted Vercel deployment
+
+As a bonus, this prototype is also deployed so it can be reviewed without any local setup.
+
+Direct hosted URL:
+
+```txt
+https://proofpoint-sourcing-vercel.vercel.app
+```
+
+If you later attach a custom domain, replace that URL with the custom production URL in this README.
+
+### Option 2: Run locally
+
+#### Requirements
 
 - Node.js 20+
 - npm
 
-### Install
+#### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### Local environment
+#### 2. Create your local environment file
 
-Use `.env.local` for your normal local development setup.
+Use `.env.local` for normal local development.
 
-Recommended local `.env.local`:
+Recommended `.env.local`:
 
 ```env
 DATABASE_URL=file:./dev.db
@@ -549,29 +569,29 @@ OPENAI_API_KEY=your_openai_key
 SCAN_MODE=live
 ```
 
-Optional if you want local to use the hosted Turso database instead:
+Optional if you want local to point at a hosted Turso database instead of SQLite:
 
 ```env
 TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 ```
 
-### Important note about Vercel env pull
+#### 3. Initialize the local database
 
-Do not let Vercel CLI overwrite your normal local `.env.local`.
-
-Instead, if you want a local copy of Vercel envs, use:
+If you are starting fresh, run:
 
 ```bash
-vercel env pull .env.vercel.local
+npx prisma generate
+npx prisma db push
+npx prisma db seed
 ```
 
-That keeps:
+Important detail:
 
-- `.env.local` for normal local development
-- `.env.vercel.local` as a separate Vercel reference file
+- the local SQLite database is `dev.db`
+- not `prisma/dev.db`
 
-### Run in development mode
+#### 4. Start the app
 
 ```bash
 npm run dev
@@ -583,15 +603,7 @@ Open:
 http://localhost:3000
 ```
 
-### If you need a fresh local database
-
-```bash
-npx prisma generate
-npx prisma db push
-npx prisma db seed
-```
-
-### Production-like local test
+#### 5. Optional: test production-like behavior locally
 
 If you want to test behavior closer to Vercel:
 
@@ -605,20 +617,35 @@ Difference:
 - `npm run dev` = development mode, hot reload, dev-only behavior
 - `npm run start` = production mode, after a successful build
 
-## Vercel deployment
+#### Optional: pull Vercel envs without overwriting local dev config
 
-### Recommended production database
+Do not let Vercel CLI overwrite your normal `.env.local`.
+
+If you want a local copy of the Vercel envs, use:
+
+```bash
+vercel env pull .env.vercel.local
+```
+
+That keeps:
+
+- `.env.local` for your actual local workflow
+- `.env.vercel.local` as a separate Vercel reference file
+
+### Option 3: Deploy your own Vercel copy
+
+#### Recommended production database
 
 Do not use local SQLite in production.
 
-Use Turso / libSQL.
+Use Turso / libSQL for hosted deployment.
 
-The app supports:
+The intended split is:
 
-- local SQLite for development
-- Turso for hosted deployment
+- SQLite for local development
+- Turso for Vercel
 
-### Production environment variables
+#### 1. Add production environment variables in Vercel
 
 Add these in the Vercel dashboard:
 
@@ -631,33 +658,29 @@ OPENAI_API_KEY=...
 SCAN_MODE=live
 ```
 
-### If you want production to mirror your local seeded data
+#### 2. Decide how to initialize production data
 
-The simplest path is:
+You have two clean options.
+
+Option A: mirror your local seeded database
 
 1. identify the real local SQLite file
 2. upload that DB into Turso
 3. connect Vercel to the Turso database
 
-In this project, the real local DB is typically:
+In this project, the real local DB is:
 
 ```txt
 dev.db
 ```
 
-not `prisma/dev.db`.
-
-### Turso upload notes
-
-Turso may require the SQLite file to be in WAL mode before upload:
+If Turso requires WAL mode before upload:
 
 ```bash
 sqlite3 dev.db "PRAGMA journal_mode=WAL;"
 ```
 
-### Alternative: initialize Turso via Prisma
-
-If you want to seed the hosted DB directly instead of uploading SQLite:
+Option B: initialize Turso directly through Prisma
 
 ```bash
 TURSO_DATABASE_URL="libsql://..." \
@@ -665,7 +688,7 @@ TURSO_AUTH_TOKEN="..." \
 npx prisma db push
 ```
 
-Then:
+Then seed it:
 
 ```bash
 TURSO_DATABASE_URL="libsql://..." \
@@ -673,17 +696,19 @@ TURSO_AUTH_TOKEN="..." \
 npx prisma db seed
 ```
 
-### Deploy
+#### 3. Deploy
 
-Once the repo and env vars are set:
+Once the repo and env vars are ready:
 
 ```bash
 vercel --prod
 ```
 
-Or use Git-based auto deployment from the connected repo.
+You can also use Git-based auto deployment from the connected repo.
 
-### After deploy, verify
+#### 4. Verify the deployed app
+
+After deploy, verify:
 
 - queue loads
 - company detail pages load

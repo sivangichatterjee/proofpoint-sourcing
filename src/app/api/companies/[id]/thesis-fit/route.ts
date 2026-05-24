@@ -18,6 +18,16 @@ export async function POST(
     typeof body.humanEditedRationale === "string"
       ? body.humanEditedRationale.trim() || undefined
       : undefined;
+  const reviewerProfileEdits =
+    body.reviewerProfileEdits &&
+    typeof body.reviewerProfileEdits === "object" &&
+    !Array.isArray(body.reviewerProfileEdits)
+      ? Object.fromEntries(
+          Object.entries(body.reviewerProfileEdits as Record<string, unknown>)
+            .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+            .map(([field, value]) => [field, (value as string).trim()])
+        )
+      : undefined;
   const analystGuidance =
     typeof body.analystGuidance === "string"
       ? body.analystGuidance.trim() || undefined
@@ -47,6 +57,7 @@ export async function POST(
     THESIS_FIT_PROMPT.buildUser({
       profileJson: JSON.stringify(profileForPrompt, null, 2),
       humanEditedRationale,
+      reviewerProfileEdits,
       analystGuidance,
     }),
     thesisFitSchema,

@@ -80,6 +80,29 @@ function displayStage(value: string | null | undefined): string {
   return normalizeStageValue(value) ?? "—";
 }
 
+function formatReviewerFieldValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object" && "text" in item && typeof item.text === "string") {
+          return item.text.trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+
+    return parts.length > 0 ? parts.join("; ") : null;
+  }
+
+  return null;
+}
+
 type SerializedNote = {
   id: string;
   body: string;
@@ -837,6 +860,7 @@ export function CompanyDetail({
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [thesisGuidance, setThesisGuidance] = useState("");
   const [includeThesisEdit, setIncludeThesisEdit] = useState(false);
+  const [includeEditedProfileInThesis, setIncludeEditedProfileInThesis] = useState(false);
   const [statusUpdateConfirmed, setStatusUpdateConfirmed] = useState(false);
   const [decisionStatus, setDecisionStatus] = useState(status);
   const [decisionNextStep, setDecisionNextStep] = useState(nextStep ?? "");
@@ -875,18 +899,30 @@ export function CompanyDetail({
     description: "Description",
     productSummary: "Product Summary",
     targetCustomer: "Target Customer",
+    verticalTags: "Vertical Tags",
+    signalsExtracted: "Signals Extracted",
   };
 
   const editedProfileFields: Record<string, string> = {};
   Object.keys(TRACKED_PROFILE_FIELDS).forEach((field) => {
     if (humanEdits?.[`profile.${field}`]) {
       const value = (profile as Record<string, unknown> | null)?.[field];
-      if (value && typeof value === "string") {
-        editedProfileFields[field] = value;
+      const formatted = formatReviewerFieldValue(value);
+      if (formatted) {
+        editedProfileFields[field] = formatted;
       }
     }
   });
   const hasProfileEdits = Object.keys(editedProfileFields).length > 0;
+
+  const reviewerProfileContext: Record<string, string> = { ...editedProfileFields };
+  if (humanEdits?.["company.vertical"] && vertical) {
+    reviewerProfileContext.vertical = vertical;
+  }
+  if (humanEdits?.["company.stage"] && stage) {
+    reviewerProfileContext.stage = stage;
+  }
+  const hasReviewerProfileContext = Object.keys(reviewerProfileContext).length > 0;
 
   function handleRegenerateProfile() {
     setIncludeProfileEdits(hasProfileEdits);
@@ -949,6 +985,7 @@ export function CompanyDetail({
 
   function handleRegenerateThesisFit() {
     setIncludeThesisEdit(hasThesisEdit);
+    setIncludeEditedProfileInThesis(hasReviewerProfileContext);
     setShowRegenerateDialog(true);
   }
 
@@ -957,12 +994,16 @@ export function CompanyDetail({
     setIsRegeneratingThesisFit(true);
     const guidance = thesisGuidance.trim();
     const context = includeThesisEdit ? humanEditedRationale : undefined;
+    const reviewerCorrections = includeEditedProfileInThesis
+      ? reviewerProfileContext
+      : undefined;
     try {
       const res = await fetch(`/api/companies/${id}/thesis-fit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           humanEditedRationale: context ?? null,
+          reviewerProfileEdits: reviewerCorrections,
           analystGuidance: guidance || undefined,
         }),
       });
@@ -974,7 +1015,7 @@ export function CompanyDetail({
           toast.success(
             guidance
               ? "Thesis regenerated with your guidance"
-              : context
+              : context || reviewerCorrections
                 ? "Thesis regenerated incorporating your notes"
                 : "Thesis regenerated"
           );
@@ -1778,11 +1819,29 @@ export function CompanyDetail({
 	              Regenerate thesis fit
 	            </DialogTitle>
 	            <DialogDescription className="text-base text-muted-foreground">
-	              {hasThesisEdit
-	                ? "Choose whether to use your edited analysis as context. Optional guidance will be included either way."
+	              {hasThesisEdit || hasReviewerProfileContext
+	                ? "Choose whether to use your edited analysis or reviewer-corrected profile fields as context. Optional guidance will be included either way."
 	                : "Add optional guidance to focus the regeneration."}
 	            </DialogDescription>
 	          </DialogHeader>
+	          {hasReviewerProfileContext && (
+	            <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer hover:border-[var(--proofpoint-orange)]/50 hover:bg-[var(--proofpoint-orange)]/5 transition-colors">
+	              <input
+	                type="checkbox"
+	                checked={includeEditedProfileInThesis}
+	                onChange={(e) => setIncludeEditedProfileInThesis(e.target.checked)}
+	                className="mt-1 size-4 rounded border-border accent-[var(--proofpoint-orange)]"
+	              />
+	              <span>
+	                <span className="block text-sm font-semibold text-foreground">
+	                  Incorporate my edited profile
+	                </span>
+	                <span className="mt-0.5 block text-sm text-muted-foreground">
+	                  Uses reviewer-corrected profile fields as higher-confidence context.
+	                </span>
+	              </span>
+	            </label>
+	          )}
 	          {hasThesisEdit && (
 	            <label className="flex items-start gap-3 rounded-lg border border-border p-4 cursor-pointer hover:border-[var(--proofpoint-orange)]/50 hover:bg-[var(--proofpoint-orange)]/5 transition-colors">
 	              <input
