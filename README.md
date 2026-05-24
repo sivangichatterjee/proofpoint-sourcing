@@ -18,15 +18,11 @@ As a bonus, I also deployed the prototype on Vercel so it can be reviewed direct
 
 Hosted app:
 
-```txt
-https://proofpoint-sourcing-vercel.vercel.app/
-```
+[https://proofpoint-sourcing-vercel.vercel.app/](https://proofpoint-sourcing-vercel.vercel.app/)
 
 Demo video:
 
-```txt
-https://www.loom.com/share/02908a3f668242fa83b95c687f38d5fb
-```
+[https://www.loom.com/share/02908a3f668242fa83b95c687f38d5fb](https://www.loom.com/share/02908a3f668242fa83b95c687f38d5fb)
 
 ## What the app does
 
