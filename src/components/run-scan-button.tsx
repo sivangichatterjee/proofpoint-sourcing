@@ -368,18 +368,8 @@ export function RunScanButton() {
 
   const showLog = log.length > 0;
 
-  function describeSearch(reasoning: string, iteration: number, query?: string): string {
-    const lower = (reasoning + " " + (query ?? "")).toLowerCase();
-    if (lower.includes("fintech") || lower.includes("insurance") || lower.includes("financial") || lower.includes("underwriting") || lower.includes("lending") || lower.includes("banking") || lower.includes("payments")) {
-      return "Searching fintech funding news…";
-    }
-    if (lower.includes("life sciences") || lower.includes("biotech") || lower.includes("pharma") || lower.includes("genomics") || lower.includes("drug discovery")) {
-      return "Searching life sciences…";
-    }
-    if (lower.includes("healthcare") || lower.includes("clinical") || lower.includes("health") || lower.includes("medical") || lower.includes("patient")) {
-      return "Searching healthcare funding news…";
-    }
-    return "Searching for companies…";
+  function describeSearch(_reasoning: string, _iteration: number, _query?: string): string {
+    return "Searching related companies…";
   }
 
   function countVerticals(entries: LogEntry[]): number {

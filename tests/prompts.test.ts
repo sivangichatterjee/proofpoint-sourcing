@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { COMPANY_ANALYSIS_PROMPT, THESIS_FIT_PROMPT } from "../src/lib/prompts";
-import { getAnalystGuidanceFromThesisFitJson } from "../src/lib/thesis";
+import {
+  getAlternativeComparisonModels,
+  getAnalystGuidanceFromThesisFitJson,
+} from "../src/lib/thesis";
 
 test("thesis prompt enforces the early-stage mandate gate", () => {
   assert.equal(THESIS_FIT_PROMPT.version, "v5");
@@ -70,4 +73,18 @@ test("saved thesis guidance can be reused by the comparison model", () => {
 
   assert.match(userPrompt, /ANALYST DIRECTION:/);
   assert.match(userPrompt, /be stricter about stage and fund fit/);
+});
+
+test("comparison route chooses the other model as the alternative", () => {
+  assert.deepEqual(
+    getAlternativeComparisonModels("meta-llama/Llama-3.3-70B-Instruct-Turbo").map(
+      (model) => model.id
+    ),
+    ["gpt-4o-mini"]
+  );
+
+  assert.deepEqual(
+    getAlternativeComparisonModels("gpt-4o-mini").map((model) => model.id),
+    ["meta-llama/Llama-3.3-70B-Instruct-Turbo"]
+  );
 });

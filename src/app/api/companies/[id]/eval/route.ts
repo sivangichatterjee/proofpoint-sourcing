@@ -2,12 +2,11 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { callLLM } from "@/lib/llm";
 import { THESIS_FIT_PROMPT } from "@/lib/prompts";
-import { getAnalystGuidanceFromThesisFitJson } from "@/lib/thesis";
+import {
+  getAlternativeComparisonModels,
+  getAnalystGuidanceFromThesisFitJson,
+} from "@/lib/thesis";
 import { ThesisFitSchema } from "@/lib/types";
-
-const EVAL_MODELS = [
-  { id: "gpt-4o-mini", label: "GPT-4o Mini" },
-];
 
 export async function POST(
   _req: NextRequest,
@@ -32,11 +31,22 @@ export async function POST(
 
   const profileJson = JSON.stringify(profileForPrompt, null, 2);
   const analystGuidance = getAnalystGuidanceFromThesisFitJson(company.thesisFit);
+  const currentModel = (() => {
+    try {
+      const parsed = company.thesisFit
+        ? (JSON.parse(company.thesisFit) as { _meta?: { model?: unknown } })
+        : null;
+      return typeof parsed?._meta?.model === "string" ? parsed._meta.model : null;
+    } catch {
+      return null;
+    }
+  })();
+  const evalModels = getAlternativeComparisonModels(currentModel);
 
   const thesisFitSchema = ThesisFitSchema.omit({ _meta: true });
 
   const settled = await Promise.allSettled(
-    EVAL_MODELS.map(async ({ id: modelId, label }) => {
+    evalModels.map(async ({ id: modelId, label }) => {
       const result = await callLLM(
         "thesis_fit",
         THESIS_FIT_PROMPT.system,
@@ -76,8 +86,8 @@ export async function POST(
     r.status === "fulfilled"
       ? r.value
       : {
-          model: EVAL_MODELS[i].id,
-          modelLabel: EVAL_MODELS[i].label,
+          model: evalModels[i].id,
+          modelLabel: evalModels[i].label,
           score: null,
           recommendation: null,
           rationale: "This model was unavailable or returned an invalid response.",
@@ -95,9 +105,15 @@ export async function PATCH(
   const { id } = await params;
   const { preferredModel, results, profileJson } = await req.json();
 
-  const rejectedModels = EVAL_MODELS
-    .filter((m) => m.id !== preferredModel)
-    .map((m) => m.id);
+  const rejectedModels = Array.isArray(results)
+    ? results
+        .map((result) =>
+          result && typeof result === "object" && typeof result.model === "string"
+            ? result.model
+            : null
+        )
+        .filter((model): model is string => !!model && model !== preferredModel)
+    : [];
 
   await db.evalPreference.create({
     data: {

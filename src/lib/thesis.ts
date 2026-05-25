@@ -14,6 +14,37 @@ Weak signals: horizontal AI tools, undifferentiated chatbot/copilot products, no
 vertical or buyer, generic LLM wrappers without proprietary data or workflow integration.
 `.trim();
 
+export const THESIS_COMPARISON_MODELS = [
+  {
+    id: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    label: "Llama 3.3 70B",
+  },
+  {
+    id: "gpt-4o-mini",
+    label: "GPT-4o Mini",
+  },
+] as const;
+
+export function getAlternativeComparisonModels(
+  currentModel: string | null | undefined
+): Array<(typeof THESIS_COMPARISON_MODELS)[number]> {
+  const normalizedCurrent = typeof currentModel === "string" ? currentModel.trim() : "";
+
+  if (!normalizedCurrent) {
+    return THESIS_COMPARISON_MODELS.filter((model) => model.id === "gpt-4o-mini");
+  }
+
+  const alternatives = THESIS_COMPARISON_MODELS.filter(
+    (model) => model.id !== normalizedCurrent
+  );
+
+  if (alternatives.length > 0) {
+    return alternatives;
+  }
+
+  return THESIS_COMPARISON_MODELS.filter((model) => model.id === "gpt-4o-mini");
+}
+
 export function getAnalystGuidanceFromThesisFitJson(
   thesisFitJson: string | null | undefined
 ): string | undefined {
